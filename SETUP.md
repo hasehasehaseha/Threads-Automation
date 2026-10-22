@@ -6,7 +6,7 @@ GitHub → Cloudflare Workers + Supabase。以前のSites試作とは別の配�
 1. 会社管理のGitHub非公開リポジトリに、このproductionフォルダーをルートとして登録。
 2. Supabase新規プロジェクトのSQL Editorで `supabase/001_initial.sql` を一度実行。
 3. 公開サインアップを無効化。Authで利用者を作成し、membersに管理者をadmin、スタッフをeditorで登録。スタッフにSupabaseの管理者権限を渡さない。
-4. Cloudflare WorkersでGitHubを接続。デプロイコマンドは `npx wrangler deploy`。
+4. GitHub Actions Secret `CLOUDFLARE_API_TOKEN` に、承認済みの限定権限Cloudflareトークンを登録。Actionsの `Deploy dashboard` をmainで実行。Cloudflare標準ビルド用の広範なトークンは作成しない。
 5. Cloudflareで SUPABASE_URL、SUPABASE_ANON_KEY を設定。SUPABASE_SERVICE_ROLE_KEY は必ずSecretとして登録。GitHubやブラウザーへ保存しない。
 6. 管理者・スタッフ・未登録ユーザーで権限を実測。SQLの移行、競合・予約の上限、承認取消、退職者無効化を実環境で確認。
 7. MakeとMeta接続、AI選定後に自動処理を実装・接続。実投稿の確認まで本番稼働とはしない。

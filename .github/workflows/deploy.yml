@@ -1,0 +1,30 @@
+name: Deploy dashboard
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: production-dashboard
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Verify deployment package
+        run: npx --no-install wrangler deploy --dry-run
+      - name: Deploy to Cloudflare
+        run: npx --no-install wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: '747302b9f123c705d3cd7a1197572d71'

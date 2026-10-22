@@ -14,7 +14,9 @@ GitHub / Cloudflare Workers / Supabase Auth + PostgreSQL / Make / Threads API。
 Supabase初期スキーマは [supabase/001_initial.sql](supabase/001_initial.sql)。
 
 ## 配信
-Cloudflare Workers Buildsでこのリポジトリのmainを接続。
-ルートはリポジトリ直下。デプロイコマンドは `npx wrangler deploy`。
+Cloudflare Workers Buildsは使用しない。GitHub Actionsの `Deploy dashboard` をmainで手動実行。
+必要権限を限定したCloudflareトークンをGitHub Actions Secret `CLOUDFLARE_API_TOKEN` に登録する。
+テストと配信パッケージ検証後、`npx wrangler deploy` で配信。
+初回検証が完了するまでpushによる自動配信は無効。
 Supabaseの公開キーとサービスロールキーはCloudflare側に登録し、後者はSecretにする。
 認証情報はリポジトリにコミットしない。
