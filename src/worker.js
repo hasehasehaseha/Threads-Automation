@@ -19,11 +19,33 @@ async function member(req,env){
  const rows=await db(env,'members?user_id=eq.'+encodeURIComponent(user.id)+'&active=eq.true&select=user_id,role');
  return rows[0]||null;
 }
+async function automation(req,env,path){
+ if(!env.MAKE_API_TOKEN||env.MAKE_API_TOKEN.length<32)return json({error:'自動化接続は未設定です'},503);
+ if(req.headers.get('Authorization')!=='Bearer '+env.MAKE_API_TOKEN)return json({error:'認証が必要です'},401);
+ if(req.method!=='POST')return json({error:'POSTのみ対応しています'},405);
+ if(path==='/api/automation/check')return json({connected:true,publishingEnabled:env.AUTOMATION_ENABLED==='true'});
+ if(path==='/api/automation/claim'&&env.AUTOMATION_ENABLED!=='true')return json({error:'自動投稿は停止中です'},409);
+ try{
+ if(path==='/api/automation/claim'){
+ const rows=await db(env,'rpc/claim_due_post','POST',{});
+ const p=rows[0];return json({post:p?{id:p.id,claim_id:p.claim_id,body:p.body,scheduled_at:p.scheduled_at}:null});
+ }
+ if(path==='/api/automation/result'){
+ const raw=await req.text();if(raw.length>4000)return json({error:'入力が大きすぎます'},413);
+ const d=JSON.parse(raw),uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+ if(!uuid.test(d.id)||!uuid.test(d.claim_id)||!['published','needs_review'].includes(d.status))return json({error:'結果形式が不正です'},400);
+ if(d.status==='published'&&(typeof d.meta_post_id!=='string'||!/^\d{1,100}$/.test(d.meta_post_id)))return json({error:'Meta投稿IDが必要です'},400);
+ return json(await db(env,'rpc/complete_claim','POST',{p_id:d.id,p_claim:d.claim_id,p_status:d.status,p_meta_id:d.status==='published'?d.meta_post_id:null}));
+ }
+ return json({error:'見つかりません'},404);
+ }catch{return json({error:'自動処理の結果を確定できません。再投稿せず管理者が確認してください。'},400);}
+}
 export default {async fetch(req,env){
  const url=new URL(req.url),path=url.pathname;
  if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
  if(path==='/api/config'&&req.method==='GET')return json({ready:isReady(env),supabaseUrl:env.SUPABASE_URL||'',anonKey:env.SUPABASE_ANON_KEY||'',automationEnabled:env.AUTOMATION_ENABLED==='true',handle:'neis_hiroshima'});
  if(!isReady(env))return json({error:'Supabaseの接続設定がまだ完了していません。'},503);
+ if(path.startsWith('/api/automation/'))return automation(req,env,path);
  if(req.method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'同じ管理画面から操作してください。'},403);
  try{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);

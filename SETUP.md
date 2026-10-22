@@ -1,6 +1,14 @@
-# 本番用コード（未接続・未配信）
+# 本番用コード（配信・Supabase接続済み）
 
 GitHub → Cloudflare Workers + Supabase。以前のSites試作とは別の配信先。
+
+## 2026-10-22 の確認状況
+- 公開先: https://danbara-threads-studio.hasegawaayato.workers.dev/
+- GitHub Actionsによる配信成功。Supabaseの初期SQL適用済み。
+- Supabase接続キーはCloudflare Secretに保存済み。
+- 初期管理者の作成・members登録・実ブラウザーでのログインを確認。
+- 「接続確認（投稿しない）」下書きの保存と「最新情報に更新」での再取得を確認。日時未指定・未承認のまま保持。
+- Make・Meta・AIは未接続。自動投稿はまだ稼働していない。
 
 ## 接続後に確認する順序
 1. 会社管理のGitHub非公開リポジトリに、このproductionフォルダーをルートとして登録。
@@ -24,7 +32,7 @@ GitHub → Cloudflare Workers + Supabase。以前のSites試作とは別の配�
 - Makeの認証付き取得/結果報告APIとシナリオ、AI生成、Meta OAuth、トークン更新、数字収集
 - 公開結果の照合・復旧画面。公開処理中の再試行は自動で行わない設計
 - DB定期バックアップと復元テスト、ページング、スタッフ追加UI
-- SupabaseへのSQL適用・統合テスト、実ブラウザーQA、Cloudflare実配信
+- 編集スタッフ・未登録ユーザーの権限確認、競合・予約上限を含む統合テスト
 - 投稿時刻は個別入力。3枠の既定時刻設定は後続実装
 
 ## Make接続計画
