@@ -1,0 +1,7 @@
+{
+  "name": "danbara-threads-studio",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-22",
+  "vars": {"SUPABASE_URL":"https://wfbbolgkfrydwgzxrzdi.supabase.co"},
+  "assets": {"directory":"./public", "binding":"ASSETS", "run_worker_first":["/api/*"]}
+}
