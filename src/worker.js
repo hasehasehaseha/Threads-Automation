@@ -1,4 +1,5 @@
 import {generationAutomation} from './generation.js';
+import {immediateReady,publishClaim} from './publish.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -54,10 +55,17 @@ export default {async fetch(req,env){
  if(path==='/api/state'&&req.method==='GET'){
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
  const generationJobs=env.MAKE_AI_TOKEN?await db(env,'generation_jobs?select=id,target_date,status,created_at,completed_at&order=created_at.desc&limit=20'):[];
- return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs});
+ return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs,immediateEnabled:immediateReady(env)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/publish-now'){
+ if(m.role!=='admin')return json({error:'即時投稿は管理者のみ可能です'},403);
+ if(!immediateReady(env))return json({error:'即時投稿は接続準備中です'},503);
+ if(!/^[0-9a-f-]{36}$/i.test(data.id)||!Number.isInteger(data.version))return json({error:'投稿情報が不正です'},400);
+ const post=await db(env,'rpc/claim_immediate_post','POST',{p_actor:m.user_id,p_id:data.id,p_version:data.version});
+ return json(await publishClaim(env,post,db));
+ }
  if(path==='/api/generate'){
  if(!env.MAKE_AI_TOKEN)return json({error:'AI生成は接続準備中です'},503);
  return json(await db(env,'rpc/request_generation_job','POST',{p_actor:m.user_id}));
