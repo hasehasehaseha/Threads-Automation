@@ -20,12 +20,13 @@ function renderGeneration(){
  if(!state.settings){target.textContent='先に投稿方針を保存してください。';return;}
  for(const j of state.generationJobs||[])target.append(item(j.target_date+' 分',generationLabels[j.status]||j.status));
 }
-const reloadData=reload;reload=async()=>{await reloadData();renderGeneration();};
+const reloadData=reload;reload=async()=>{await reloadData();renderGeneration();$('#refresh-metrics').disabled=state.member.role!=='admin'||!state.metricsEnabled;$('#connection').textContent='共有保存：接続済み ／ AI：'+(state.generationEnabled?'利用可能（依頼後最大15分）':'準備中')+' ／ 即時投稿：'+(state.immediateEnabled?'利用可能':'準備中')+' ／ 予約配信：'+(state.automationEnabled?'有効（8:00・12:00・20:00）':'停止中');};
+$('#refresh-metrics').onclick=safe(async()=>{const b=$('#refresh-metrics');b.disabled=true;try{const r=await api('metrics/refresh',{});await reload();msg(r.total===0?'この管理画面からの公開済み投稿はまだありません。':`反響を${r.saved}件取得しました。取得済み${r.skipped}件、取得失敗${r.failed}件。`);}finally{b.disabled=false;}});
 $('#generate-drafts').onclick=safe(async()=>{const b=$('#generate-drafts');b.disabled=true;try{await api('generate',{});await reload();msg('翌日分の生成依頼を登録しました。同じ日付の依頼は重複作成しません。処理後に最新情報へ更新してください。');}finally{renderGeneration();}});
 $('#reload').onclick=safe(reload);
 $('#reset-post').onclick=()=>{editing=null;$('#post-form').reset();};
 $('#post-form').onsubmit=safe(async e=>{const data=Object.fromEntries(new FormData(e.target));await api('posts',{...data,action:editing?'edit':'create',id:editing?.id,version:editing?.version,settings_id:state.settings?.id||null});editing=null;e.target.reset();await reload();msg('下書きを保存しました。');});
 $('#settings-form').onsubmit=safe(async e=>{await api('settings',Object.fromEntries(new FormData(e.target)));await reload();msg('投稿方針を保存しました。');});
 $('#preview-prompt').onclick=()=>{const s=Object.fromEntries(new FormData($('#settings-form')));$('#prompt').textContent='ネイス体操教室 広島段原ショッピングセンター校のThreads投稿案を3案作成してください。\n'+Object.entries(s).map(([k,v])=>k+': '+v).join('\n')+'\n不足情報は創作せず確認事項として分けてください。各投稿は500文字以内。';};
-try{const r=await fetch('/api/config');if(!r.ok)throw new Error();config=await r.json();$('#connection').textContent=config.ready?'共有データ保存は接続設定済み。自動投稿・AI生成はまだ接続確認が必要です。':'Supabase未接続です。接続設定後にスタッフログインを開始できます。';$('#login-form').querySelector('button').disabled=!config.ready;}catch{$('#connection').textContent='サーバーに接続できません。Cloudflareへの配信状態を確認してください。';$('#login-form').querySelector('button').disabled=true;}
+try{const r=await fetch('/api/config');if(!r.ok)throw new Error();config=await r.json();$('#connection').textContent=config.ready?'共有データ保存に接続済みです。ログイン後に各機能の状態を確認できます。':'Supabase未接続です。接続設定後にスタッフログインを開始できます。';$('#login-form').querySelector('button').disabled=!config.ready;}catch{$('#connection').textContent='サーバーに接続できません。Cloudflareへの配信状態を確認してください。';$('#login-form').querySelector('button').disabled=true;}
 
