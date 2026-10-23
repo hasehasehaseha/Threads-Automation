@@ -12,6 +12,16 @@ async function reload(){state=await api('state');$('#workspace').hidden=false;$(
  const metrics=$('#metric-list');metrics.replaceChildren();if(!state.metrics.length)metrics.append(item('反響データは未取得です','Meta接続後に実際の数字を取得します。'));for(const m of state.metrics){const post=state.posts.find(p=>p.id===m.post_id);metrics.append(item(when(m.captured_at)+' · '+(post?.topic||'投稿'),['views','likes','replies','reposts','quotes','shares'].map((k,i)=>['閲覧','いいね','返信','再投稿','引用','シェア'][i]+': '+(m[k]??'未取得')).join(' / ')));}}
 $('#login-form').onsubmit=safe(async e=>{if(!config?.ready)throw new Error('先にSupabaseの接続設定が必要です');const data=Object.fromEntries(new FormData(e.target));try{const r=await fetch(config.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:config.anonKey,'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await r.json();if(!r.ok)throw new Error('ログインできませんでした。入力内容を確認してください。');token=result.access_token;await reload();msg('ログインしました。');}finally{e.target.elements.password.value='';}});
 $('#logout').onclick=safe(async()=>{const old=token;token=null;state=null;editing=null;$('#workspace').hidden=true;$('#login').hidden=false;$('#logout').hidden=true;$('#post-list').replaceChildren();$('#metric-list').replaceChildren();$('#post-form').reset();$('#settings-form').reset();$('#prompt').textContent='';if(old)await fetch(config.supabaseUrl+'/auth/v1/logout',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+old}});msg('ログアウトしました。');});
+const generationLabels={queued:'生成待ち',generating:'生成中',completed:'下書き保存済み',needs_review:'要確認（自動再生成はしません）'};
+function renderGeneration(){
+ const button=$('#generate-drafts');button.disabled=!state?.generationEnabled||!state?.settings;
+ const target=$('#generation-status');target.replaceChildren();
+ if(!state?.generationEnabled){target.textContent='AI生成は接続準備中です。';return;}
+ if(!state.settings){target.textContent='先に投稿方針を保存してください。';return;}
+ for(const j of state.generationJobs||[])target.append(item(j.target_date+' 分',generationLabels[j.status]||j.status));
+}
+const reloadData=reload;reload=async()=>{await reloadData();renderGeneration();};
+$('#generate-drafts').onclick=safe(async()=>{const b=$('#generate-drafts');b.disabled=true;try{await api('generate',{});await reload();msg('翌日分の生成依頼を登録しました。同じ日付の依頼は重複作成しません。処理後に最新情報へ更新してください。');}finally{renderGeneration();}});
 $('#reload').onclick=safe(reload);
 $('#reset-post').onclick=()=>{editing=null;$('#post-form').reset();};
 $('#post-form').onsubmit=safe(async e=>{const data=Object.fromEntries(new FormData(e.target));await api('posts',{...data,action:editing?'edit':'create',id:editing?.id,version:editing?.version,settings_id:state.settings?.id||null});editing=null;e.target.reset();await reload();msg('下書きを保存しました。');});

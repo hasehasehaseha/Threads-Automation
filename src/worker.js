@@ -1,3 +1,4 @@
+import {generationAutomation} from './generation.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -45,16 +46,22 @@ export default {async fetch(req,env){
  if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
  if(path==='/api/config'&&req.method==='GET')return json({ready:isReady(env),supabaseUrl:env.SUPABASE_URL||'',anonKey:env.SUPABASE_ANON_KEY||'',automationEnabled:env.AUTOMATION_ENABLED==='true',handle:'neis_hiroshima'});
  if(!isReady(env))return json({error:'Supabaseの接続設定がまだ完了していません。'},503);
+ if(path.startsWith('/api/generation/'))return generationAutomation(req,env,path,db);
  if(path.startsWith('/api/automation/'))return automation(req,env,path);
  if(req.method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'同じ管理画面から操作してください。'},403);
  try{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);
  if(path==='/api/state'&&req.method==='GET'){
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
- return json({member:m,posts,settings:settings[0]||null,metrics});
+ const generationJobs=env.MAKE_AI_TOKEN?await db(env,'generation_jobs?select=id,target_date,status,created_at,completed_at&order=created_at.desc&limit=20'):[];
+ return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/generate'){
+ if(!env.MAKE_AI_TOKEN)return json({error:'AI生成は接続準備中です'},503);
+ return json(await db(env,'rpc/request_generation_job','POST',{p_actor:m.user_id}));
+ }
  if(path==='/api/settings'){
  if(m.role!=='admin')return json({error:'投稿方針の変更は管理者のみ可能です。'},403);
  if(!data||typeof data!=='object'||Array.isArray(data))return json({error:'設定形式が不正です'},400);
