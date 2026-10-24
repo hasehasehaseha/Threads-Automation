@@ -26,7 +26,9 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   if(date&&selected.some(s=>new Date(date+'T'+s.time+':00+09:00')<=new Date()))throw new Error('今日分は、すべての投稿をこれからの時刻にしてください。');
   return selected;
  }
- $('#generation-count').onchange=()=>{capture();rows=[];dirty=true;drawRows();renderButtons();};
+ function changeCount(value){$('#generation-count').value=value;capture();rows=[];dirty=true;drawRows();renderButtons();}
+ $('#generation-count').onchange=e=>changeCount(e.target.value);
+ $('#generation-run-count').onchange=e=>changeCount(e.target.value);
  $('#generation-slots').oninput=()=>{capture();dirty=true;};
  $('#generation-slots').onchange=()=>{capture();dirty=true;};
  function renderButtons(){
@@ -34,6 +36,7 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   for(const id of ['generate-drafts','generate-today','generate-date'])$('#'+id).disabled=disabled;
   $('#generate-drafts').textContent='翌日分の'+n+'件を生成';$('#generate-today').textContent='今日分の'+n+'件を生成';$('#generate-date').textContent='指定日の'+n+'件を生成';
   $('#generation-count').disabled=busy;$('#generation-date').disabled=busy;
+  $('#generation-run-count').value=String(n);$('#generation-run-count').disabled=busy;
   $('#generation-slots').querySelectorAll('input,select').forEach(el=>{el.disabled=busy;});
   $('#save-generation-plan').disabled=busy||state?.member.role!=='admin';
  }

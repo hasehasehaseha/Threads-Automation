@@ -10,6 +10,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .generation-slot label{margin:0;min-width:0}
 #generation-options>label{max-width:200px}
 #save-generation-plan{margin:14px 0}
+.generation-run-controls{margin:16px 0;padding:16px;background:#f6faf9;border:1px solid #e0e8e8;border-radius:10px}
+.generation-run-controls>label{max-width:200px;margin-bottom:8px}
 .prompt-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
 .prompt-tabs button{font-size:13px}
 .prompt-tabs button.active{background:#e5f4f0;color:#007c70;border-color:#008678}
