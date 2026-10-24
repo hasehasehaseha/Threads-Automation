@@ -167,3 +167,8 @@ Cloudflare Workersのfetchはredirect:'error'非対応でMetaへの送信前に�
 - Browser size override requested390 but live screenshot/evaluated document width599, so do not claim exact390UI validation. No horizontal overflow at observed599 (clientWidth=scrollWidth), rows/7tabs fit. CSS<=600breakpoint implemented; priorphonecompact CSS preserved. Viewport must reset before final (done after proof), app24keepdeliverable, close46/47/48.
 - Screenshots C:/Users/ayato/Documents/Codex/Threads-Automation-flexible-generation-settings.png and Threads-Automation-seven-prompt-tabs.png; completed-history image also saved separately. Existing old8:00draft appearedalready published at08:30 before verification (not published by this work).
 - Updated older SQL regression fixtures for new today/flexible default semantics. No work remains for requested feature.
+
+## 2026-10-25: 生成ボタン付近の件数選択（進行中）
+- User screenshot of today/tomorrow/date buttons3件 requested variable count in that area. Added visible 今回生成する件数1〜7 immediately above buttons, grouped with date control, synchronized with existing generation-count and row count/button labels. All three actions still use same slots. Code07ae0d0fa740ca7712c1fb885b211dc785bfb9c8. No DB/Make changes.
+- Syntax/diff checks passed. Deployment pending; UI verify top/bottom selectors both directions and labels3→5→7; do not enqueue extra job merely to verify this UI change. Preserve saved defaults3.
+- Deploy #18 SUCCESS https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40143605306 (job121020249240),43CItests and dryrun. App24 reloaded, user login requested, keep tab49 for deployment evidence until UI done. Need final3/5/7 selector sync verification and screenshot, no API generation needed.
