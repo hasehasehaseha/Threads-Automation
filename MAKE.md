@@ -1,34 +1,29 @@
 # Make接続の作業状況
 
-更新: 2026-10-23
+更新: 2026-10-24
 
 ## 投稿配信
-
 https://eu2.make.com/556148/scenarios/10021080/edit
 
-- 保存済み。Inactive。CloudflareのAUTOMATION_ENABLEDも未有効化。
-- Asia/Tokyoの08:00 / 12:00 / 20:00、Daily 3回を設定済み。
-- HTTP開始モジュールに時計を移動。シナリオ全体実行で/api/automation/checkの200とconnected:trueを確認。
-- claim → 投稿ありフィルター → Threadsコンテナ作成 → 公開 → result報告を構成。
-- 作成・公開エラーはneeds_reviewを報告してRollbackで停止。公開の自動再試行は設定しない。
-- 結果保存失敗もRollbackで停止。外部Threads投稿はRollbackでは取消されないため、照合して手動復旧する。
-- 順次処理を有効化。不完全実行の自動再試行は無効。
-- Threads接続 /me でneis_hiroshimaとIDを確認済み。実投稿は未実施。
-- 本文・IDマッピングはBlueprintで確認済み。実データの全体動作は未検証。
+Active。毎日08:00 / 12:00 / 20:00 Asia/Tokyo。
+claim → 投稿ありフィルター → Threadsコンテナ作成 → 公開 → result報告。
+作成・公開エラーはneeds_reviewを報告して停止。公開の自動再試行なし。
+結果保存失敗も停止。RollbackはThreadsの公開を取り消さないため、照合が必要。
+承認済み投稿なしの実行が正常終了、公開モジュール未実行を確認。実投稿の通しテストは未実施。
 
-## 配信済みAPI
+## AI下書き
+https://eu2.make.com/556148/scenarios/10028014/edit
 
-- /api/automation/check
-- /api/automation/claim
-- /api/automation/result
+Active。15分ごとに生成依頼を確認。
+HTTP /api/generation/claim（Danbara AI Drafts接続）→ job.idありフィルター → OpenAI Responses（Danbara OpenAI、gpt-4.1-mini、max_output_tokens2200、store false、createConversation false）→ HTTP /api/generation/result。
+結果文字列はescapeJSONでJSON文字列として安全に格納。
+2026-10-25分の3案を8/12/20時の未承認下書きとして保存する実動作テスト成功。
+MAKE_AI_TOKENはCloudflareとMakeの専用接続に保存済み。スタッフ管理や公開には使えない。
 
-MAKE_API_TOKENはCloudflare SecretとMakeの接続に登録済み。
-Supabase service_roleはMakeには渡していない。
-002_automation_result.sql適用済み。Worker 4982103配信済み。
+## 反響
+Cloudflareの毎日21:30 JSTのCronと管理者の手動操作で取得。最新15件、1時間内に取得済みの投稿はスキップ。
+実投稿がまだないため、Metaから実数を取得する統合検証は未実施。
 
-## AI下書き・分析
-
-OpenAI API利用をユーザーが選択。MakeでAI下書き生成シナリオを準備中。
-既存My OpenAI connectionは401。Danbara OpenAI接続のキー入力をユーザーに依頼。
-AIの方針取得・生成・下書き保存は未実装。反響取得とトークン更新も未完了。
-本番自動投稿は必要な検証が完了するまで有効化しない。
+## 残る保守
+Threadsトークンの自動更新と公開結果の照合・復旧UIは未実装。
+運用手順と制限はSETUP.mdを参照。
