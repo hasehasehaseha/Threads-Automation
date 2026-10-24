@@ -7,6 +7,7 @@
 GitHub / Cloudflare Workers / Supabase Auth + PostgreSQL / Make / Threads API。
 本番管理画面、共有保存、OpenAIによる下書き生成、Threads即時公開、反響取得を接続済み。
 予約公開はCloudflareの毎分Cron、AI生成はMakeを利用します。検証済み範囲と残作業はSETUP.md、最新の引き継ぎはHANDOFF.mdを参照してください。
+プロンプトの複数保存・分類・3投稿への割り当てと、公開しない3案の生成テストに対応。共通方針と個別指示のスナップショットを生成履歴に保存します。
 
 ## 開発・検証
 `npm ci` → `npm test` → `npx wrangler deploy --dry-run`

@@ -2,6 +2,19 @@
 
 更新: 2026-10-24 JST。GPT-6 astra → GPT-6.1 sol。同じチャットで続行する前提。秘密キー・パスワードはこの文書に含まない。
 
+## 2026-10-24 プロンプト管理・テスト生成（最新）
+ユーザー依頼: 投稿品質を高めるため、複数プロンプトの設定・試し生成・共感/教育などテーマ別の使い分け。初期版は既存Make/OpenAIを利用し15分確認、テストを公開しない仕様で実装。
+b0ab67a / Deploy #12成功 https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40103642290 。SQL006適用済み。prompt_templates/planを追加、generation_jobsにkind/test、prompt_snapshot、preview_postsを追加。通常生成のtarget_date一意は維持し、testはtarget_date null。SQL complete_generation_jobでtestをpreview_postsだけに保存、通常は未承認draftのみ作成。
+個別指示はsrc/prompts.jsで入力検証。generationPrompt(settings,snapshot)が共通方針＋個別指示を結合。Makeのjob{id,claim_id,prompt}とresult契約を維持し、シナリオや認証の変更は不要。Workerにprompts保存・plan保存・test依頼・指示全文preview API。public/prompts.jsが編集/一覧/割当/履歴/15秒ポーリング/下書きへの採用を担当。
+管理者だけが保存・使い分け変更。編集スタッフも未保存の指示をテスト可能。テストは1人同時1件・1時間10回まで。新しい権限付与や秘密キー作成は行っていない。
+初期4テンプレート（共感、学び、教室紹介、体験前の安心）、デフォルト割当は共感/学び/教室紹介。保存・使い分け保存のUI操作成功。共感テンプレートは内容を変えず保存確認したのでversionが進んでいる。
+23:44 JSTにUIで未保存の個別指示をテスト依頼、job 78892229-8925-4c25-888a-7cd57ade2650。23:45頃Make Run onceで実OpenAI生成成功。3案全て指定冒頭「習い事、いつ始めよう？」、URLなし補足も反映。DB postsは前後7件で不変。次に案1だけ日時未指定・未承認の下書きとして採用しUI表示を確認。公開なし。テスト履歴・指示スナップショットは保存済み。現在の共感編集欄にはこの未保存テスト入力が残っているが、ライブラリの保存指示は変更していない。
+38 Nodeテスト成功。test/prompt-invariants.sqlのDB実機rollback検証で、テストの投稿隔離・依頼時snapshot不変・通常生成draftのみ・callback再送の冪等性・公開ロール制限も成功。
+77e101bで仕上げ: 下書き採用後すぐstate更新、同じ画面内の採用済み表示維持、割当編集中のversion固定で他スタッフの更新を上書きしない、旧投稿方針の不正確な指示プレビューをプロンプト画面への導線に置換、個別の文字数指定を500文字以内で優先。Deploy #13成功 https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40104174027 。38テストと配信前検査通過。
+証跡 C:/Users/ayato/Documents/Codex/Threads-Automation-prompt-library.png と Threads-Automation-prompt-test-success.png 。本番タブ24はログイン済み。仕上げ配信後に不要な再読込で再ログインを要求しない。
+Make編集画面では古い未保存OpenAI設定の回復案内が出たが閉じ、現在の保存済みシナリオで実行成功。古い設定をRecover/保存しない。
+制約: テストは即時生成ではなく15分poll（今回は検証のためRun once）、履歴は直近30生成ジョブ。翌日分の依頼は既存一意性のため日付ごとの再生成なし。既存10/25ジョブは以前の指示のまま。テストで比較できる。通常生成での新しい3種指示の経路はNode/SQLで検証、実GPTはtestモードで確認。
+
 ## 2026-10-24 トークン自動更新（最新）
 ユーザーが自動更新を依頼し、暗号化したThreadsトークンをSupabaseへ保存・復号鍵をCloudflare Secretへ保存して有効化することを明示承認済み。
 1039b66 / Deploy #11成功: https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40102396812 。SQL005適用済み。Cloudflare THREADS_TOKEN_ENCRYPTION_KEY保存済み（値はどこにも記載しない）。TOKEN_AUTO_REFRESH_ENABLED=trueをwranglerで管理。

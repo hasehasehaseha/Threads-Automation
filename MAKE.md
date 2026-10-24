@@ -18,6 +18,9 @@ https://eu2.make.com/556148/scenarios/10028014/edit
 Active。15分ごとに生成依頼を確認。
 HTTP /api/generation/claim（Danbara AI Drafts接続）→ job.idありフィルター → OpenAI Responses（Danbara OpenAI、gpt-4.1-mini、max_output_tokens2200、store false、createConversation false）→ HTTP /api/generation/result。
 結果文字列はescapeJSONでJSON文字列として安全に格納。
+プロンプト管理追加後もMakeのモジュール変更は不要。claimのjob.promptが、ジョブに保存した個別プロンプトと共通方針を結合した指示になります。通常生成と公開しないテスト生成は同じシナリオを使い、resultの保存先をサーバー/DBで分けます。
+2026-10-24 23:44〜23:45、管理画面でテスト依頼→Make Run once→OpenAI→テスト履歴3案表示を実確認。テストだけではposts件数が増えないことも確認。
+シナリオを開くと古いOpenAI設定の回復案内が出る場合があります。現在の保存済みシナリオで成功確認済みのため、古い未保存変更をRecover/保存しないでください。案内は閉じました。
 2026-10-25分の3案を8/12/20時の未承認下書きとして保存する実動作テスト成功。
 MAKE_AI_TOKENはCloudflareとMakeの専用接続に保存済み。スタッフ管理や公開には使えない。
 
