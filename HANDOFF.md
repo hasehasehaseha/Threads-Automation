@@ -136,3 +136,12 @@ Cloudflare Workersのfetchはredirect:'error'非対応でMetaへの送信前に�
 - Production dashboard latest-information refresh showed completed and exactly three new unapproved drafts at 10/26 08:00, 12:00, 20:00 (共感 / 習い事選び / 教室紹介). No manual Make run, duplicate request, code changes or publishing performed.
 - Production generation status does not automatically refresh; users must click 最新情報に更新. Make checks every 15 minutes, so queued up to 15 minutes is expected.
 - Proof: C:/Users/ayato/Documents/Codex/Threads-Automation-generation-20261026-success.png
+
+## 2026-10-25: 指定日で3案生成を追加
+- Code commit 8a56832777fb35eed88a67a0604a64c5cdb23fb5; deploy #14 https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40140774350 (verify outcome).
+- supabase/007_generation_date.sql applied successfully. request_generation_for_date(p_actor,p_target) accepts tomorrow or later JST, snapshots target date/settings/3 templates, preserves unique target_date; existing request_generation_job(uuid) delegates tomorrow to this function. No Make configuration changes.
+- POST /api/generate accepts optional target_date YYYY-MM-DD; server rejects impossible/current/past dates. No date means original tomorrow behavior. Only service_role can execute RPC, existing active-member checks retained.
+- UI keeps tomorrow button and adds date picker/指定日の3案を生成. All results remain draft/unapproved at 08:00,12:00,20:00 JST on selected day. Poll interval remains 15 minutes, manual 最新情報に更新.
+- 40 Node tests passed, public/app.js syntax passed. test/generation-date-invariants.sql passed against live DB with rollback: specified date/three unapproved drafts/duplicate callback/request deduplication/past-day rejection/public RPC isolation. No test rows left behind.
+- Next: verify deploy #14 success, reload app (memory-only token needs user sign-in), UI test 2026-10-30 generate request and resulting 3 drafts. Do not publish/approve these drafts automatically.
+- Deploy #14 SUCCESS (19s) confirmed in GitHub UI. Production tab24 reloaded; awaiting user sign-in for UI-only verification. Original Oct26 generation already completed normally in Make schedule07:53. Screenshot of new date picker still pending login.
