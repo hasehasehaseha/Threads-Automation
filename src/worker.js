@@ -1,6 +1,7 @@
 import {generationAutomation} from './generation.js';
 import {immediateReady,publishClaim,checkThreadsConnection} from './publish.js';
 import {collectMetrics} from './metrics.js';
+import {runScheduled,publishDue} from './scheduler.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -43,7 +44,7 @@ async function automation(req,env,path){
  return json({error:'見つかりません'},404);
  }catch{return json({error:'自動処理の結果を確定できません。再投稿せず管理者が確認してください。'},400);}
 }
-export default {async scheduled(event,env,ctx){ctx.waitUntil(collectMetrics(env,db));},async fetch(req,env){
+export default {async scheduled(event,env,ctx){ctx.waitUntil(runScheduled(event,env,db,{publishDue,collectMetrics}));},async fetch(req,env){
  const url=new URL(req.url),path=url.pathname;
  if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
  if(path==='/api/config'&&req.method==='GET')return json({ready:isReady(env),supabaseUrl:env.SUPABASE_URL||'',anonKey:env.SUPABASE_ANON_KEY||'',automationEnabled:env.AUTOMATION_ENABLED==='true',handle:'neis_hiroshima'});
