@@ -1,3 +1,4 @@
+import {setupGenerationStudio} from './generation-settings.js';
 import {setupPromptStudio} from './prompts.js';
 const $=s=>document.querySelector(s);let config,token=null,state=null,editing=null;
 const msg=t=>$('#status').textContent=t;
@@ -14,15 +15,7 @@ async function reload(){state=await api('state');$('#workspace').hidden=false;$(
 $('#login-form').onsubmit=safe(async e=>{if(!config?.ready)throw new Error('先にSupabaseの接続設定が必要です');const data=Object.fromEntries(new FormData(e.target));try{const r=await fetch(config.supabaseUrl+'/auth/v1/token?grant_type=password',{method:'POST',headers:{apikey:config.anonKey,'Content-Type':'application/json'},body:JSON.stringify(data)});const result=await r.json();if(!r.ok)throw new Error('ログインできませんでした。入力内容を確認してください。');token=result.access_token;await reload();msg('ログインしました。');}finally{e.target.elements.password.value='';}});
 $('#logout').onclick=safe(async()=>{const old=token;token=null;state=null;editing=null;$('#workspace').hidden=true;$('#login').hidden=false;$('#logout').hidden=true;$('#post-list').replaceChildren();$('#metric-list').replaceChildren();$('#post-form').reset();$('#settings-form').reset();$('#prompt').textContent='';if(old)await fetch(config.supabaseUrl+'/auth/v1/logout',{method:'POST',headers:{apikey:config.anonKey,Authorization:'Bearer '+old}});msg('ログアウトしました。');});
 const generationLabels={queued:'生成待ち（開始まで最大15分程度）',generating:'生成中',completed:'下書き保存済み',needs_review:'要確認（自動再生成はしません）'};
-function renderGeneration(){
- const button=$('#generate-drafts');button.disabled=!state?.generationEnabled||!state?.settings;
- $('#generate-date').disabled=button.disabled;
- const dateInput=$('#generation-date'),tomorrow=new Date(Date.now()+9*3600000+86400000).toISOString().slice(0,10);dateInput.min=tomorrow;if(!dateInput.value)dateInput.value=tomorrow;
- const target=$('#generation-status');target.replaceChildren();
- if(!state?.generationEnabled){target.textContent='AI生成は接続準備中です。';return;}
- if(!state.settings){target.textContent='先に投稿方針を保存してください。';return;}
- for(const j of (state.generationJobs||[]).filter(j=>j.kind!=='test'))target.append(item(j.target_date+' 分',generationLabels[j.status]||j.status));
-}
+function renderGeneration(){generationStudio.render();}
 const reloadData=reload;reload=async()=>{await reloadData();renderGeneration();$('#refresh-metrics').disabled=state.member.role!=='admin'||!state.metricsEnabled;$('#connection').textContent='共有保存：接続済み ／ AI：'+(state.generationEnabled?'利用可能（依頼後最大15分）':'準備中')+' ／ 即時投稿：'+(state.immediateEnabled?'利用可能':'準備中')+' ／ 予約配信：'+(state.automationEnabled?'有効（自由な時刻・毎分確認）':'停止中');};
 const reloadWithConnection=reload;reload=async()=>{await reloadWithConnection();
  const t=state.threadsToken,labels={healthy:'自動更新は正常です',pending:'最初の更新を待っています',error:'更新の再確認が必要です',reconnect:'Threadsの再接続が必要です',uninitialized:'初期設定が必要です'};
@@ -31,16 +24,13 @@ const reloadWithConnection=reload;reload=async()=>{await reloadWithConnection();
 };
 $('#refresh-threads-token').onclick=safe(async()=>{const b=$('#refresh-threads-token');b.disabled=true;try{const r=await api('threads/token/refresh',{});await reload();msg(r.state==='refreshed'?'Threadsトークンを更新して安全に保存しました。':r.state==='error'?r.error:'次回更新対象時刻に自動確認します。');}finally{b.disabled=state?.member.role!=='admin'||!state?.threadsToken?.enabled||state.threadsToken.status==='reconnect';}});
 $('#refresh-metrics').onclick=safe(async()=>{const b=$('#refresh-metrics');b.disabled=true;try{const r=await api('metrics/refresh',{});await reload();msg(r.total===0?'この管理画面からの公開済み投稿はまだありません。':`反響を${r.saved}件取得しました。取得済み${r.skipped}件、取得失敗${r.failed}件。`);}finally{b.disabled=false;}});
-$('#generate-drafts').onclick=safe(async()=>{const b=$('#generate-drafts');b.disabled=true;try{await api('generate',{});await reload();msg('翌日分の生成依頼を登録しました。同じ日付の依頼は重複作成しません。処理後に最新情報へ更新してください。');}finally{renderGeneration();}});
-$('#generate-date-form').onsubmit=safe(async e=>{
- const date=e.target.elements.target_date.value,b=$('#generate-date');b.disabled=true;
- try{const job=await api('generate',{target_date:date});await reload();msg(date+' 分：'+(generationLabels[job.status]||'依頼を確認しました')+'。同じ日付は重複生成しません。処理後に「最新情報に更新」を押してください。');}finally{renderGeneration();}
-});
 $('#reload').onclick=safe(reload);
 $('#reset-post').onclick=()=>{editing=null;$('#post-form').reset();};
 $('#post-form').onsubmit=safe(async e=>{const data=Object.fromEntries(new FormData(e.target));await api('posts',{...data,action:editing?'edit':'create',id:editing?.id,version:editing?.version,settings_id:state.settings?.id||null});editing=null;e.target.reset();await reload();msg('下書きを保存しました。');});
 $('#settings-form').onsubmit=safe(async e=>{await api('settings',Object.fromEntries(new FormData(e.target)));await reload();msg('投稿方針を保存しました。');});
 $('#preview-prompt').onclick=()=>show('prompts');
+const generationStudio=setupGenerationStudio({api,safe,msg,item,when,reload:()=>reload(),getState:()=>state});
+$('#logout').addEventListener('click',()=>generationStudio.reset());
 const promptStudio=setupPromptStudio({api,safe,msg,item,when,reload:()=>reload(),getState:()=>state,show});
 $('#logout').addEventListener('click',()=>promptStudio.reset());
 const reloadBeforePrompts=reload;reload=async()=>{await reloadBeforePrompts();promptStudio.render();};

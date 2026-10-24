@@ -5,6 +5,14 @@
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #generate-date-form{align-items:flex-end}
 #generate-date-form input,#generate-date-form button{height:48px}
+.generation-slot{display:grid;grid-template-columns:60px minmax(130px,1fr) minmax(0,2fr);align-items:end;gap:12px;padding:12px 0;border-bottom:1px solid #e2e9e9}
+.generation-slot strong{align-self:center;font-size:13px}
+.generation-slot label{margin:0;min-width:0}
+#generation-options>label{max-width:200px}
+#save-generation-plan{margin:14px 0}
+.prompt-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.prompt-tabs button{font-size:13px}
+.prompt-tabs button.active{background:#e5f4f0;color:#007c70;border-color:#008678}
 @media(max-width:600px){
  body{font-size:14px;line-height:1.65;overflow-wrap:anywhere}
  aside{padding:12px 12px 8px;border-right:0;border-bottom:1px solid #e0e8e8}
@@ -36,4 +44,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
  pre{padding:12px;font-size:12px}
  #status:not(:empty){left:12px;right:12px;bottom:max(12px,env(safe-area-inset-bottom));max-width:none;max-height:22vh;overflow:auto;padding:10px 12px;font-size:12px;line-height:1.5;border-radius:8px}
  footer{padding:20px 0}
+ .generation-slot{grid-template-columns:minmax(0,1fr);gap:6px;padding:12px 0}
+ .generation-slot strong{font-size:12px}
+ .prompt-tabs{gap:6px}
+ .prompt-tabs button{font-size:12px;padding:7px 9px}
 }

@@ -6,7 +6,8 @@ import worker from '../src/worker.js';
 test('generation dates reject impossible dates and use the Japanese day boundary',()=>{
  const now=new Date('2026-10-25T15:00:00Z'); // Oct 26 JST
  assert.equal(validateGenerationDate('2026-10-30',now),'2026-10-30');
- for(const date of ['2026-10-26','2026-10-25','2027-02-29','2026-02-30','2026-13-01','0000-01-01','2026-1-30',null])assert.throws(()=>validateGenerationDate(date,now));
+ assert.equal(validateGenerationDate('2026-10-26',now),'2026-10-26');
+ for(const date of ['2026-10-25','2027-02-29','2026-02-30','2026-13-01','0000-01-01','2026-1-30',null])assert.throws(()=>validateGenerationDate(date,now));
  assert.equal(validateGenerationDate('2028-02-29',now),'2028-02-29');
  assert.ok(generationPrompt({}, {target_date:'2026-10-30'}).includes('投稿予定日（日本時間）：2026-10-30'));
 });

@@ -1,4 +1,4 @@
-import {generationAutomation,validateGenerationDate} from './generation.js';
+import {generationAutomation,validateGenerationDate,validateGenerationSlots} from './generation.js';
 import {immediateReady,publishClaim,checkThreadsConnection} from './publish.js';
 import {collectMetrics} from './metrics.js';
 import {runScheduled,publishDue} from './scheduler.js';
@@ -63,7 +63,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  if(path==='/api/state'&&req.method==='GET'){
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
  const generationJobs=env.MAKE_AI_TOKEN?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot&order=created_at.desc&limit=30'):[];
- const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
+ const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc,id.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
  return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
@@ -72,6 +72,11 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  if(m.role!=='admin')return json({error:'プロンプトの保存は管理者のみ可能です'},403);
  if(data.id&&(!/^[0-9a-f-]{36}$/i.test(data.id)||!Number.isInteger(data.version)))return json({error:'プロンプトの版が不正です'},400);
  return json(await db(env,'rpc/save_prompt_template','POST',{p_actor:m.user_id,p_id:data.id||null,p_version:data.version||null,p_content:validateTemplate(data)}));
+ }
+ if(path==='/api/generation-plan'){
+ if(m.role!=='admin')return json({error:'初期設定の保存は管理者のみ可能です'},403);
+ const slots=validateGenerationSlots(data.slots);
+ return json(await db(env,'rpc/save_generation_plan','POST',{p_actor:m.user_id,p_version:data.version||null,p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)}));
  }
  if(path==='/api/prompts/plan'){
  if(m.role!=='admin')return json({error:'使い分けの設定は管理者のみ可能です'},403);
@@ -110,6 +115,11 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  }
  if(path==='/api/generate'){
  if(!env.MAKE_AI_TOKEN)return json({error:'AI生成は接続準備中です'},503);
+ if(data.slots!==undefined){
+ const target=validateGenerationDate(data.target_date??new Date(Date.now()+9*3600000+86400000).toISOString().slice(0,10));
+ const slots=validateGenerationSlots(data.slots,target);
+ return json(await db(env,'rpc/request_configured_generation','POST',{p_actor:m.user_id,p_target:target,p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)}));
+ }
  return json(data.target_date===undefined?await db(env,'rpc/request_generation_job','POST',{p_actor:m.user_id}):await db(env,'rpc/request_generation_for_date','POST',{p_actor:m.user_id,p_target:validateGenerationDate(data.target_date)}));
  }
  if(path==='/api/settings'){

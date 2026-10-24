@@ -17,28 +17,21 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show})
   try{await api('prompts/test',values());await reload();msg('テストを依頼しました。保存前の入力内容を使い、公開せずに3案を作ります。最大15分ほどかかります。');}
   finally{b.disabled=!getState()?.generationEnabled;}
  });
- $('#prompt-plan-form').onchange=()=>{planDirty=true;};
- $('#prompt-plan-form').onsubmit=safe(async e=>{
-  const f=e.target;await api('prompts/plan',{version:planVersion,slots:[f.elements.slot0.value,f.elements.slot1.value,f.elements.slot2.value]});planDirty=false;await reload();msg('3投稿のプロンプト設定を保存しました。次の新しい生成依頼から使います。');
- });
  $('#refresh-tests').onclick=safe(reload);
  function render(){
   const state=getState();if(!state)return;
-  const admin=state.member.role==='admin';$('#save-template').disabled=!admin;$('#save-prompt-plan').disabled=!admin;
+  const admin=state.member.role==='admin';$('#save-template').disabled=!admin;
   $('#test-template').disabled=!state.generationEnabled||!state.settings;
   $('#prompt-editor-note').textContent=admin?'管理者はプロンプトを保存できます。テストは保存前の入力でも実行できます。':'保存・使い分けの設定は管理者が行います。スタッフも入力を変えてテストできます。';
+  const tabs=$('#prompt-tabs');tabs.replaceChildren();
+  for(const [i,t] of (state.promptTemplates||[]).entries()){
+   const b=document.createElement('button');b.type='button';b.textContent=(i+1)+'. '+t.name;b.classList.toggle('active',editing?.id===t.id);b.setAttribute('aria-pressed',String(editing?.id===t.id));
+   b.onclick=()=>{if(dirty&&!confirm('編集中の内容を破棄して切り替えますか？'))return;edit(t);render();};tabs.append(b);
+  }
   const library=$('#template-list');library.replaceChildren();
   for(const t of state.promptTemplates||[]){
    const a=item(t.name+' · '+t.category+(t.active?'':' · 使用停止'),t.instructions),b=document.createElement('button');b.textContent='編集・テスト';
-   b.onclick=()=>{if(dirty&&!confirm('現在の編集中の内容を破棄して切り替えますか？'))return;edit(t);form.scrollIntoView({behavior:'smooth'});};a.append(b);library.append(a);
-  }
-  const f=$('#prompt-plan-form');if(!planDirty)planVersion=state.promptPlan?.version??null;
-  for(let i=0;i<3;i++){
-   const select=f.elements['slot'+i];if(planDirty)continue;select.replaceChildren();
-   for(const t of (state.promptTemplates||[]).filter(t=>t.active)){
-    const o=document.createElement('option');o.value=t.id;o.textContent=t.category+'：'+t.name;select.append(o);
-   }
-   if(state.promptPlan?.slots[i])select.value=state.promptPlan.slots[i];select.disabled=!admin;
+   b.onclick=()=>{if(dirty&&!confirm('現在の編集中の内容を破棄して切り替えますか？'))return;edit(t);render();form.scrollIntoView({behavior:'smooth'});};a.append(b);library.append(a);
   }
   const history=$('#prompt-test-history');history.replaceChildren();
   const jobs=(state.generationJobs||[]).filter(j=>j.kind==='test');
