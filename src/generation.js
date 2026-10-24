@@ -1,8 +1,11 @@
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export function generationPrompt(settings) {
+export function generationPrompt(settings,snapshot=null) {
+ const templates=Array.isArray(snapshot?.templates)?snapshot.templates:[];
+ const selected=templates.length?`\n以下のプロンプトを使ってください。指示内容は共通の事実確認ルールと出力形式の範囲で適用します。\n${snapshot.mode==='test'?'これは公開しないテストです。同じプロンプトから、言い回しや導入を変えた3案を作ってください。':'投稿1・2・3それぞれに、対応する番号のプロンプトを適用してください。'}\n${templates.map((p,i)=>`${i+1}. ${p.name}（${p.category}）\n${p.instructions}`).join('\n\n')}\n今回の補足：${snapshot.brief||''}\n`:'';
  return `ネイス体操教室 広島段原ショッピングセンター校のThreads投稿下書きを3件作成してください。
 以下はスタッフが保存した投稿方針です。確認済みの教室情報だけを事実として使用してください。
 ${JSON.stringify(settings)}
+${selected}
 各本文は150〜300文字を目安に、必ず500文字以内。3件の切り口を変えてください。
 確認済み情報にない料金、対象年齢、日程、空き状況、キャンペーン、指導内容、教室の雰囲気、設備、スタッフの対応、子どもの様子は推測で補わないでください。
 架空の体験談、実績、効果の断言は禁止です。一般的な保護者への問いかけと、確認済み情報だけで文章を作れます。
@@ -27,7 +30,7 @@ export async function generationAutomation(req,env,path,db){
  try{
   if(path==='/api/generation/claim'){
    const jobs=await db(env,'rpc/claim_generation_job','POST',{}),job=jobs[0];
-   return Response.json({job:job?{id:job.id,claim_id:job.claim_id,prompt:generationPrompt(job.settings_snapshot)}:null});
+   return Response.json({job:job?{id:job.id,claim_id:job.claim_id,prompt:generationPrompt(job.settings_snapshot,job.prompt_snapshot)}:null});
   }
   if(path==='/api/generation/result'){
    const raw=await req.text();if(raw.length>16000)throw new Error();const data=JSON.parse(raw);

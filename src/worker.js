@@ -3,6 +3,7 @@ import {immediateReady,publishClaim,checkThreadsConnection} from './publish.js';
 import {collectMetrics} from './metrics.js';
 import {runScheduled,publishDue} from './scheduler.js';
 import {threadsEnvironment,tokenStatus,initializeToken,refreshThreadsToken} from './threads-token.js';
+import {validateTemplate,validateTest} from './prompts.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -61,11 +62,32 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);
  if(path==='/api/state'&&req.method==='GET'){
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
- const generationJobs=env.MAKE_AI_TOKEN?await db(env,'generation_jobs?select=id,target_date,status,created_at,completed_at&order=created_at.desc&limit=20'):[];
- return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
+ const generationJobs=env.MAKE_AI_TOKEN?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot&order=created_at.desc&limit=30'):[];
+ const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
+ return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/prompts'){
+ if(m.role!=='admin')return json({error:'プロンプトの保存は管理者のみ可能です'},403);
+ if(data.id&&(!/^[0-9a-f-]{36}$/i.test(data.id)||!Number.isInteger(data.version)))return json({error:'プロンプトの版が不正です'},400);
+ return json(await db(env,'rpc/save_prompt_template','POST',{p_actor:m.user_id,p_id:data.id||null,p_version:data.version||null,p_content:validateTemplate(data)}));
+ }
+ if(path==='/api/prompts/plan'){
+ if(m.role!=='admin')return json({error:'使い分けの設定は管理者のみ可能です'},403);
+ if(!Array.isArray(data.slots)||data.slots.length!==3||data.slots.some(id=>!/^[0-9a-f-]{36}$/i.test(id)))return json({error:'3投稿分のプロンプトを選んでください'},400);
+ return json(await db(env,'rpc/save_prompt_plan','POST',{p_actor:m.user_id,p_version:data.version||null,p_slots:data.slots}));
+ }
+ if(path==='/api/prompts/test'){
+ if(!env.MAKE_AI_TOKEN)return json({error:'AI接続は未設定です'},503);
+ return json(await db(env,'rpc/request_prompt_test','POST',{p_actor:m.user_id,p_snapshot:validateTest(data)}));
+ }
+ if(path==='/api/prompts/preview'){
+ const {generationPrompt}=await import('./generation.js');
+ const settings=(await db(env,'editorial_settings?order=id.desc&limit=1'))[0];
+ if(!settings)return json({error:'先に投稿方針を保存してください'},400);
+ return json({prompt:generationPrompt(settings.content,validateTest(data))});
+ }
  if(path==='/api/threads/token/refresh'){
  if(m.role!=='admin')return json({error:'接続の更新は管理者のみ可能です'},403);
  await initializeToken(env,db);
