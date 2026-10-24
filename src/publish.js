@@ -6,8 +6,18 @@ async function meta(env,path,body){
   headers:{Authorization:'Bearer '+env.THREADS_ACCESS_TOKEN,...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},
   body:body?new URLSearchParams(body):undefined
  });
- if(!response.ok)throw new Error('Meta request failed');
+ if(!response.ok){
+  const data=await response.json().catch(()=>({}));
+  const code=Number.isInteger(data.error?.code)?data.error.code:'unknown';
+  const subcode=Number.isInteger(data.error?.error_subcode)?data.error.error_subcode:'none';
+  throw new Error(`Meta HTTP ${response.status} / code ${code} / subcode ${subcode}`);
+ }
  return response.json();
+}
+export async function checkThreadsConnection(env){
+ const user=await meta(env,'me?fields=id,username');
+ if(user.username!=='neis_hiroshima')throw new Error('Threadsの接続先アカウントが一致しません');
+ return user;
 }
 export async function publishClaim(env,post,db){
  try{

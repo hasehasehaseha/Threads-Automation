@@ -1,5 +1,5 @@
 import {generationAutomation} from './generation.js';
-import {immediateReady,publishClaim} from './publish.js';
+import {immediateReady,publishClaim,checkThreadsConnection} from './publish.js';
 import {collectMetrics} from './metrics.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
@@ -62,6 +62,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil(collectMetrics(env,
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
  if(path==='/api/metrics/refresh'){
  if(m.role!=='admin')return json({error:'反響の更新は管理者のみ可能です'},403);
+ await checkThreadsConnection(env);
  return json(await collectMetrics(env,db));
  }
  if(path==='/api/publish-now'){
