@@ -12,6 +12,10 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 #save-generation-plan{margin:14px 0}
 .generation-run-controls{margin:16px 0;padding:16px;background:#f6faf9;border:1px solid #e0e8e8;border-radius:10px}
 .generation-run-controls>label{max-width:200px;margin-bottom:8px}
+.current-test-result{margin:16px 0;padding:16px;border:1px solid #b9dcd4;border-radius:10px;background:#f0faf7}
+.current-test-result h3{font-size:15px;margin:0 0 10px}
+.current-test-result p{margin:8px 0}
+.current-test-result[aria-busy="true"]{border-style:dashed}
 .prompt-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
 .prompt-tabs button{font-size:13px}
 .prompt-tabs button.active{background:#e5f4f0;color:#007c70;border-color:#008678}

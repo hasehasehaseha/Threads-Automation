@@ -6,5 +6,5 @@ export function validateTemplate(data){
 export function validateTest(data){
  const template=validateTemplate(data),brief=String(data.brief||'').trim();
  if(brief.length>2000)throw new Error('今回試したい内容は2,000文字以内で入力してください');
- return {mode:'test',templates:[template],brief};
+ return {mode:'test',count:1,delivery:'direct',templates:[template],brief};
 }

@@ -1,11 +1,11 @@
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export function generationPrompt(settings,snapshot=null) {
- const test=snapshot?.mode==='test',count=test?3:(snapshot?.count||3);
+ const test=snapshot?.mode==='test',count=test?(snapshot?.count===1?1:3):(snapshot?.count||3);
  const templates=Array.isArray(snapshot?.templates)?snapshot.templates:[];
  const selected=templates.map((p,i)=>  `${i+1}. ${p.name}（${p.category}）${!test&&snapshot?.times?.[i]?' ／ 投稿時刻 '+snapshot.times[i]+' JST':''}\n${p.instructions}`).join('\n\n');
  return `# 役割と今回の依頼
 ネイス体操教室 広島段原ショッピングセンター校のThreads投稿下書きを${count}件作成してください。
-${test?'用途：公開しないテスト。同じ個別プロンプトから導入・言い回し・切り口が異なる案を比較します。':'用途：通常投稿用。下の番号とposts配列の順番を一致させ、各番号につき本文を一つ作成します。'}
+${test?'用途：公開しないテスト。個別プロンプトと今回の補足を反映した投稿文を作成し、指定件数を超える比較案は追加しないでください。':'用途：通常投稿用。下の番号とposts配列の順番を一致させ、各番号につき本文を一つ作成します。'}
 ${snapshot?.target_date?'投稿予定日（日本時間）：'+snapshot.target_date+'。この投稿日に合う文章にしてください。日付の明記は必須ではありません。':''}
 
 # 共通の投稿方針

@@ -4,6 +4,7 @@ import {collectMetrics} from './metrics.js';
 import {runScheduled,publishDue} from './scheduler.js';
 import {threadsEnvironment,tokenStatus,initializeToken,refreshThreadsToken} from './threads-token.js';
 import {validateTemplate,validateTest} from './prompts.js';
+import {runImmediateTest,publicTestResult} from './instant-preview.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -50,7 +51,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  if(event.cron==='30 12 * * *')await refreshThreadsToken(env,db);
  const connectedEnv=await threadsEnvironment(env,db);
  return runScheduled(event,connectedEnv,db,{publishDue,collectMetrics});
-})());},async fetch(req,env){
+})());},async fetch(req,env,ctx){
  const url=new URL(req.url),path=url.pathname;
  if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
  if(path==='/api/config'&&req.method==='GET')return json({ready:isReady(env),supabaseUrl:env.SUPABASE_URL||'',anonKey:env.SUPABASE_ANON_KEY||'',automationEnabled:env.AUTOMATION_ENABLED==='true',handle:'neis_hiroshima'});
@@ -62,9 +63,9 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);
  if(path==='/api/state'&&req.method==='GET'){
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
- const generationJobs=env.MAKE_AI_TOKEN?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot&order=created_at.desc&limit=30'):[];
+ const generationJobs=env.MAKE_AI_TOKEN||env.OPENAI_API_KEY?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot,test_error&order=created_at.desc&limit=30'):[];
  const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc,id.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
- return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
+ return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
@@ -84,8 +85,9 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  return json(await db(env,'rpc/save_prompt_plan','POST',{p_actor:m.user_id,p_version:data.version||null,p_slots:data.slots}));
  }
  if(path==='/api/prompts/test'){
- if(!env.MAKE_AI_TOKEN)return json({error:'AI接続は未設定です'},503);
- return json(await db(env,'rpc/request_prompt_test','POST',{p_actor:m.user_id,p_snapshot:validateTest(data)}));
+ if(!env.OPENAI_API_KEY)return json({error:'即時テスト用のOpenAI接続を設定してください。'},503);
+ const task=runImmediateTest(env,m.user_id,data,db);ctx?.waitUntil(task.catch(()=>{}));
+ return json(publicTestResult(await task));
  }
  if(path==='/api/prompts/preview'){
  const {generationPrompt}=await import('./generation.js');

@@ -23,13 +23,13 @@ test('test uses unsaved instructions and production Make contract remains unchan
  assert.ok(body.job.prompt.includes('未保存の独自指示'));assert.ok(body.job.prompt.includes('試したい切り口'));assert.ok(body.job.prompt.includes('公開しないテスト'));
 });
 test('editors can test but cannot save templates or change production plan',async t=>{
- const env={SUPABASE_URL:'https://db.example',SUPABASE_ANON_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:'secret',MAKE_AI_TOKEN:'a'.repeat(48)};let request;
+ const env={SUPABASE_URL:'https://db.example',SUPABASE_ANON_KEY:'public',SUPABASE_SERVICE_ROLE_KEY:'secret',MAKE_AI_TOKEN:'a'.repeat(48),OPENAI_API_KEY:'server-only'};let request;
  t.mock.method(globalThis,'fetch',async(url,options)=>{
   if(url.includes('/auth/v1/user'))return Response.json({id:'editor'});
   if(url.includes('/members?'))return Response.json([{user_id:'editor',role:'editor'}]);
-  assert.ok(url.endsWith('/rpc/request_prompt_test'));request=JSON.parse(options.body);return Response.json({id:'test-job',kind:'test'});
+  assert.ok(url.endsWith('/rpc/begin_immediate_prompt_test'));request=JSON.parse(options.body);return Response.json({id:'test-job',kind:'test',status:'completed',claim_id:'old-claim',preview_posts:[{topic:'比較',body:'結果'}]});
  });
- const call=path=>worker.fetch(new Request('https://example.com/api/'+path,{method:'POST',headers:{Origin:'https://example.com',Authorization:'Bearer staff'},body:JSON.stringify(template)}),env);
+ const call=path=>worker.fetch(new Request('https://example.com/api/'+path,{method:'POST',headers:{Origin:'https://example.com',Authorization:'Bearer staff'},body:JSON.stringify({...template,request_id:'11111111-1111-4111-8111-111111111111'})}),env);
  assert.equal((await call('prompts')).status,403);assert.equal((await call('prompts/plan')).status,403);
  assert.equal((await call('prompts/test')).status,200);assert.equal(request.p_snapshot.mode,'test');assert.ok(!request.p_snapshot.target_date);
 });
