@@ -2,6 +2,16 @@
 
 更新: 2026-10-24 JST。GPT-6 astra → GPT-6.1 sol。同じチャットで続行する前提。秘密キー・パスワードはこの文書に含まない。
 
+## 2026-10-24 予約時刻の修正（最新追記）
+ユーザーが18:05に予約したが公開されなかったと報告。Makeは08/12/20のみ起動する一方UIは任意時刻を許可していた。ユーザーは「自由な時刻に予約したい」を選択。
+42147b6でCloudflare毎分Cronに予約公開を移行。MakeはAI生成に引き続き使用。claim_due_postとpublishClaimを再利用し、原子的claim・15分超過停止・不明時の再投稿禁止を維持。src/scheduler.js追加。反響Cronは21:30のまま分離。
+23テスト通過。Deploy #9 https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40100329409 成功。本番に自由時刻表示・Cron追加を確認、Make旧配信10021080はInactive。ユーザー再ログイン済み。
+18:05の投稿453ad4cf-0344-4fd1-ab62-355d5c265863は20時のMake claimでneeds_reviewへ移行、Meta IDなし、last_error「予約時刻から15分以上経過しています」。Threadsプロフィール上でも未公開を確認。同じ本文の新規予約テスト794a159e-61bd-4000-ba3d-5d1bf64a56de（23:03 JST）は23:04:55にclaim→needs_review、Threadsに該当本文なし。停止段階が当時未記録のため原因は未断定。再投稿せず保持。
+6440f34で準備状態を最大5回・2秒間隔で確認し、コンテナIDをaudit_logへ保存、停止段階と安全な数値APIコードをlast_errorへ保存する改善を追加。外部公開要求を再試行しない設計は維持。25テスト通過、Deploy #10成功: https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40101123005
+改善後の実予約テストは成功。DB caaaee45-8090-4176-94b9-d266757f3064「教室のお知らせ（予約投稿の確認）」、23:10 JST予約→23:10:48.347 claim→23:10:57.047公開済み。Meta ID18140719726725229、last_error null。Threadsの本文・URLまで照合: https://www.threads.com/@neis_hiroshima/post/De4UPGAlfiK 。即時投稿・手動claimは使わず実Cronで確認。証跡 C:/Users/ayato/Documents/Codex/Threads-Automation-scheduled-public-success.png と Threads-Automation-scheduled-dashboard-success.png。
+既存の21:30 JST反響Cronは実行成功をDBで確認。captured_at=2026-10-24T12:30:27.586764Z、views=11、likes=1。従来「Cron未検証」の記述は解消。
+以下の旧「Makeの実公開検証」「予約が3枠のみ」「準備状態1回のみ」「21:30Cron未検証」の記述は、この追記で更新済み。次の主な保守はThreadsトークン更新・認証セッション更新・照合復旧UI。
+
 ## 最初に読むもの
 この文書 → SETUP.md（運用）→ MAKE.md（外部シナリオ）。実装変更前に対象コードと現在のUIを確認する。ここに記載した外部サービスの状態は検証時点のもの。ブラウザーの要素番号やログイン状態を引き継げると仮定しない。
 

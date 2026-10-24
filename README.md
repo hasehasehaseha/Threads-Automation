@@ -5,8 +5,8 @@
 
 ## 構成
 GitHub / Cloudflare Workers / Supabase Auth + PostgreSQL / Make / Threads API。
-共有画面・保存API・初期DBスキーマを実装。Make・Meta・AIはまだ未接続。
-本番稼働済みではありません。
+本番管理画面、共有保存、OpenAIによる下書き生成、Threads即時公開、反響取得を接続済み。
+予約公開はCloudflareの毎分Cron、AI生成はMakeを利用します。検証済み範囲と残作業はSETUP.md、最新の引き継ぎはHANDOFF.mdを参照してください。
 
 ## 開発・検証
 `npm ci` → `npm test` → `npx wrangler deploy --dry-run`
