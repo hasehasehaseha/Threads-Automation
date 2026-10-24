@@ -20,3 +20,8 @@ test('claim sends no database credential or staff data to Make',async t=>{
 test('publishing result requires a valid claim and numeric Meta id',async()=>{
  for(const body of [{},{id:'invalid',claim_id:'invalid',status:'published'},{id:'12345678-1234-1234-1234-123456789012',claim_id:'12345678-1234-1234-1234-123456789012',status:'published',meta_post_id:'https://example.com'}])assert.equal((await worker.fetch(makeRequest('result',body),automationEnv)).status,400);
 });
+test('editors cannot initialize or refresh server credentials',async t=>{
+ t.mock.method(globalThis,'fetch',async url=>url.includes('/auth/v1/user')?Response.json({id:'editor'}):Response.json([{user_id:'editor',role:'editor'}]));
+ const r=await worker.fetch(new Request('https://example.com/api/threads/token/refresh',{method:'POST',headers:{Origin:'https://example.com',Authorization:'Bearer staff'},body:'{}'}),automationEnv);
+ assert.equal(r.status,403);
+});

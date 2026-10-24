@@ -21,6 +21,12 @@ function renderGeneration(){
  for(const j of state.generationJobs||[])target.append(item(j.target_date+' 分',generationLabels[j.status]||j.status));
 }
 const reloadData=reload;reload=async()=>{await reloadData();renderGeneration();$('#refresh-metrics').disabled=state.member.role!=='admin'||!state.metricsEnabled;$('#connection').textContent='共有保存：接続済み ／ AI：'+(state.generationEnabled?'利用可能（依頼後最大15分）':'準備中')+' ／ 即時投稿：'+(state.immediateEnabled?'利用可能':'準備中')+' ／ 予約配信：'+(state.automationEnabled?'有効（自由な時刻・毎分確認）':'停止中');};
+const reloadWithConnection=reload;reload=async()=>{await reloadWithConnection();
+ const t=state.threadsToken,labels={healthy:'自動更新は正常です',pending:'最初の更新を待っています',error:'更新の再確認が必要です',reconnect:'Threadsの再接続が必要です',uninitialized:'初期設定が必要です'};
+ $('#threads-token-status').textContent=t?.enabled?[(labels[t.status]||'確認中')+'。毎日21:30に確認し、更新成功から7日後に次の更新を行います。','有効期限：'+(t.expiresAt?when(t.expiresAt):'初回更新後に確認'),'最終更新：'+(t.refreshedAt?when(t.refreshedAt):'未更新'),'次回更新対象：'+(t.nextAttemptAt?when(t.nextAttemptAt):'未設定'),t.lastError||''].filter(Boolean).join(' ／ '):'トークン自動更新は接続準備中です。';
+ $('#refresh-threads-token').disabled=state.member.role!=='admin'||!t?.enabled||t.status==='reconnect';
+};
+$('#refresh-threads-token').onclick=safe(async()=>{const b=$('#refresh-threads-token');b.disabled=true;try{const r=await api('threads/token/refresh',{});await reload();msg(r.state==='refreshed'?'Threadsトークンを更新して安全に保存しました。':r.state==='error'?r.error:'次回更新対象時刻に自動確認します。');}finally{b.disabled=state?.member.role!=='admin'||!state?.threadsToken?.enabled||state.threadsToken.status==='reconnect';}});
 $('#refresh-metrics').onclick=safe(async()=>{const b=$('#refresh-metrics');b.disabled=true;try{const r=await api('metrics/refresh',{});await reload();msg(r.total===0?'この管理画面からの公開済み投稿はまだありません。':`反響を${r.saved}件取得しました。取得済み${r.skipped}件、取得失敗${r.failed}件。`);}finally{b.disabled=false;}});
 $('#generate-drafts').onclick=safe(async()=>{const b=$('#generate-drafts');b.disabled=true;try{await api('generate',{});await reload();msg('翌日分の生成依頼を登録しました。同じ日付の依頼は重複作成しません。処理後に最新情報へ更新してください。');}finally{renderGeneration();}});
 $('#reload').onclick=safe(reload);
