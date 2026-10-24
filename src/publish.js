@@ -2,7 +2,7 @@
 export function immediateReady(env){return env.IMMEDIATE_ENABLED==='true'&&!!env.THREADS_ACCESS_TOKEN;}
 async function meta(env,path,body){
  const response=await fetch('https://graph.threads.net/v1.0/'+path,{
-  method:body?'POST':'GET',redirect:'error',signal:AbortSignal.timeout(20000),
+  method:body?'POST':'GET',redirect:'manual',signal:AbortSignal.timeout(20000),
   headers:{Authorization:'Bearer '+env.THREADS_ACCESS_TOKEN,...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},
   body:body?new URLSearchParams(body):undefined
  });

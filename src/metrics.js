@@ -21,7 +21,7 @@ export async function collectMetrics(env,db){
   if(done.has(post.id)){skipped++;continue;}
   try{
    if(!/^\d{1,100}$/.test(post.meta_post_id))throw new Error();
-   const r=await fetch('https://graph.threads.net/v1.0/'+post.meta_post_id+'/insights?metric='+metricNames.join(','),{headers:{Authorization:'Bearer '+env.THREADS_ACCESS_TOKEN},redirect:'error',signal:AbortSignal.timeout(15000)});
+   const r=await fetch('https://graph.threads.net/v1.0/'+post.meta_post_id+'/insights?metric='+metricNames.join(','),{headers:{Authorization:'Bearer '+env.THREADS_ACCESS_TOKEN},redirect:'manual',signal:AbortSignal.timeout(15000)});
    if(!r.ok)throw new Error();
    const values=parseMetrics(await r.json());
    await db(env,'metric_snapshots','POST',{post_id:post.id,...values});saved++;
