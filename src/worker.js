@@ -93,6 +93,15 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  if(!settings)return json({error:'先に投稿方針を保存してください'},400);
  return json({prompt:generationPrompt(settings.content,validateTest(data))});
  }
+ if(path==='/api/prompts/production-preview'){
+ const {generationPrompt}=await import('./generation.js');
+ const target=validateGenerationDate(data.target_date),slots=validateGenerationSlots(data.slots);
+ const settings=(await db(env,'editorial_settings?order=id.desc&limit=1'))[0];
+ if(!settings)return json({error:'先に投稿方針を保存してください'},400);
+ const snapshot=await db(env,'rpc/generation_snapshot','POST',{p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)});
+ snapshot.target_date=target;
+ return json({prompt:generationPrompt(settings.content,snapshot),count:slots.length,target_date:target,mode:'production'});
+ }
  if(path==='/api/threads/token/refresh'){
  if(m.role!=='admin')return json({error:'接続の更新は管理者のみ可能です'},403);
  await initializeToken(env,db);

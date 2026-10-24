@@ -13,8 +13,8 @@ https://neis-gym.com/class/hiroshima/neis_1195/</textarea></label><label>禁止�
 <label class="check-label"><input type="checkbox" name="active" checked>予約用の選択肢に表示する</label>
 <div class="actions"><button id="save-template" class="primary">プロンプトを保存</button><button id="new-template" type="button">新規入力に戻る</button></div>
 <label>今回のテストで試したい内容（任意）<textarea name="brief" maxlength="2000" placeholder="例：習い事を始めるか迷っている保護者へ、急がなくてよいと伝えたい"></textarea></label>
-<div class="actions"><button id="test-template" type="button">この入力でテスト生成</button><button id="preview-template-prompt" type="button">GPTに渡す指示全文を確認</button></div>
-<p>テストは保存前の入力を使用し、公開も予約も行いません。Makeの確認間隔により最大15分ほどかかります。画面は15秒ごとに結果を確認します。テストは1人につき同時に1件、1時間に10回までです。AI利用料・Makeクレジットが発生します。</p><pre id="test-prompt-preview"></pre></form></article>
+<div class="actions"><button id="test-template" type="button">この入力でテスト生成</button><button id="preview-template-prompt" type="button">通常投稿用の指示全文を確認</button><button id="preview-test-prompt" type="button">テスト用の指示全文を確認（3案）</button></div>
+<p>通常投稿用の指示は「投稿管理」で選択中の件数・日付・時刻と保存済みのプロンプトを使用します。編集中の指示は保存後に通常投稿へ反映されます。</p><p>テストは保存前の入力を使用し、公開も予約も行いません。Makeの確認間隔により最大15分ほどかかります。画面は15秒ごとに結果を確認します。テストは1人につき同時に1件、1時間に10回までです。AI利用料・Makeクレジットが発生します。</p><pre id="test-prompt-preview"></pre></form></article>
 <h2>保存したプロンプト</h2><div id="template-list"></div>
 <div class="actions"><h2>テスト履歴と生成結果</h2><button id="refresh-tests">最新の結果に更新</button></div><div id="prompt-test-history"></div>
 </section>

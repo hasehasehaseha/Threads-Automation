@@ -69,5 +69,5 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   }
   if(!pollTimer&&(state.generationJobs||[]).some(j=>j.kind!=='test'&&['queued','generating'].includes(j.status))){pollTimer=setTimeout(async()=>{pollTimer=null;try{if(getState())await reload();}catch{}},15000);}
  }
- return {render,reset(){dirty=false;version=null;rows=[];busy=false;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;$('#generation-slots').replaceChildren();}};
+ return {render,previewRequest:()=>({target_date:$('#generation-date').value,slots:slots()}),reset(){dirty=false;version=null;rows=[];busy=false;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;$('#generation-slots').replaceChildren();}};
 }

@@ -31,7 +31,7 @@ $('#settings-form').onsubmit=safe(async e=>{await api('settings',Object.fromEntr
 $('#preview-prompt').onclick=()=>show('prompts');
 const generationStudio=setupGenerationStudio({api,safe,msg,item,when,reload:()=>reload(),getState:()=>state});
 $('#logout').addEventListener('click',()=>generationStudio.reset());
-const promptStudio=setupPromptStudio({api,safe,msg,item,when,reload:()=>reload(),getState:()=>state,show});
+const promptStudio=setupPromptStudio({api,safe,msg,item,when,reload:()=>reload(),getState:()=>state,show,getGenerationPreview:()=>generationStudio.previewRequest()});
 $('#logout').addEventListener('click',()=>promptStudio.reset());
 const reloadBeforePrompts=reload;reload=async()=>{await reloadBeforePrompts();promptStudio.render();};
 try{const r=await fetch('/api/config');if(!r.ok)throw new Error();config=await r.json();$('#connection').textContent=config.ready?'共有データ保存に接続済みです。ログイン後に各機能の状態を確認できます。':'Supabase未接続です。接続設定後にスタッフログインを開始できます。';$('#login-form').querySelector('button').disabled=!config.ready;}catch{$('#connection').textContent='サーバーに接続できません。Cloudflareへの配信状態を確認してください。';$('#login-form').querySelector('button').disabled=true;}

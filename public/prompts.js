@@ -1,5 +1,5 @@
 // Loaded by app.js with the existing authenticated API; no new browser credentials.
-export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show}){
+export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show,getGenerationPreview}){
  const $=s=>document.querySelector(s);let editing=null,dirty=false,polling=false,planDirty=false,planVersion=null;
  const savedPreviews=new Set();
  const form=$('#template-form');
@@ -11,7 +11,11 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show})
   const result=await api('prompts',{...values(),id:editing?.id,version:editing?.version});
   edit(Array.isArray(result)?result[0]:result);await reload();msg('プロンプトを保存しました。既存の投稿や依頼済みの生成には影響しません。');
  });
- $('#preview-template-prompt').onclick=safe(async()=>{const r=await api('prompts/preview',values());$('#test-prompt-preview').textContent=r.prompt;});
+ $('#preview-template-prompt').onclick=safe(async()=>{
+  const r=await api('prompts/production-preview',getGenerationPreview());
+  $('#test-prompt-preview').textContent='通常投稿用の新規生成プレビュー：'+r.target_date+' ／ '+r.count+'件\n投稿管理で選択中の件数・時刻と、保存済みのプロンプトを使用します。依頼済みの内容は変わりません。\n\n'+r.prompt;
+ });
+ $('#preview-test-prompt').onclick=safe(async()=>{const r=await api('prompts/preview',values());$('#test-prompt-preview').textContent='テスト生成用（3案）・現在の未保存の入力を使用\n通常投稿の件数設定とは別の比較テストです。\n\n'+r.prompt;});
  $('#test-template').onclick=safe(async()=>{
   const b=$('#test-template');b.disabled=true;
   try{await api('prompts/test',values());await reload();msg('テストを依頼しました。保存前の入力内容を使い、公開せずに3案を作ります。最大15分ほどかかります。');}
