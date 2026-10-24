@@ -1,6 +1,7 @@
 // Loaded by app.js with the existing authenticated API; no new browser credentials.
 export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show}){
- const $=s=>document.querySelector(s);let editing=null,dirty=false,polling=false,planDirty=false;
+ const $=s=>document.querySelector(s);let editing=null,dirty=false,polling=false,planDirty=false,planVersion=null;
+ const savedPreviews=new Set();
  const form=$('#template-form');
  const values=()=>({...Object.fromEntries(new FormData(form)),active:form.elements.active.checked});
  function edit(t=null){editing=t;form.reset();form.elements.active.checked=t?.active??true;for(const k of ['name','category','instructions'])form.elements[k].value=t?.[k]||'';dirty=false;$('#template-mode').textContent=t?'編集中：'+t.name:'新しいプロンプト';$('#test-prompt-preview').textContent='';}
@@ -18,7 +19,7 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show})
  });
  $('#prompt-plan-form').onchange=()=>{planDirty=true;};
  $('#prompt-plan-form').onsubmit=safe(async e=>{
-  const f=e.target;await api('prompts/plan',{version:getState().promptPlan?.version,slots:[f.elements.slot0.value,f.elements.slot1.value,f.elements.slot2.value]});planDirty=false;await reload();msg('3投稿のプロンプト設定を保存しました。次の新しい生成依頼から使います。');
+  const f=e.target;await api('prompts/plan',{version:planVersion,slots:[f.elements.slot0.value,f.elements.slot1.value,f.elements.slot2.value]});planDirty=false;await reload();msg('3投稿のプロンプト設定を保存しました。次の新しい生成依頼から使います。');
  });
  $('#refresh-tests').onclick=safe(reload);
  function render(){
@@ -31,7 +32,7 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show})
    const a=item(t.name+' · '+t.category+(t.active?'':' · 使用停止'),t.instructions),b=document.createElement('button');b.textContent='編集・テスト';
    b.onclick=()=>{if(dirty&&!confirm('現在の編集中の内容を破棄して切り替えますか？'))return;edit(t);form.scrollIntoView({behavior:'smooth'});};a.append(b);library.append(a);
   }
-  const f=$('#prompt-plan-form');
+  const f=$('#prompt-plan-form');if(!planDirty)planVersion=state.promptPlan?.version??null;
   for(let i=0;i<3;i++){
    const select=f.elements['slot'+i];if(planDirty)continue;select.replaceChildren();
    for(const t of (state.promptTemplates||[]).filter(t=>t.active)){
@@ -47,13 +48,14 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show})
    const t=j.prompt_snapshot?.templates?.[0],a=item((t?.name||'プロンプトテスト')+' · '+status[j.status],when(j.created_at));
    const details=document.createElement('details'),summary=document.createElement('summary'),p=document.createElement('pre');summary.textContent='このテストで使ったプロンプト';p.textContent=(t?.instructions||'')+(j.prompt_snapshot?.brief?'\n\n今回の補足：'+j.prompt_snapshot.brief:'');details.append(summary,p);a.append(details);
    for(const [i,v] of (j.preview_posts||[]).entries()){
-    const result=item('案'+(i+1)+' · '+v.topic,v.body),save=document.createElement('button');save.textContent='下書きに保存';
-    save.onclick=safe(async()=>{save.disabled=true;try{await api('posts',{action:'create',body:v.body,topic:v.topic,planned:'',settings_id:null});save.textContent='下書きに保存済み';msg('日時未指定の下書きへ保存しました。公開には別途承認が必要です。');}catch(e){save.disabled=false;throw e;}});
+    const result=item('案'+(i+1)+' · '+v.topic,v.body),save=document.createElement('button'),previewKey=j.id+':'+i;
+    save.disabled=savedPreviews.has(previewKey);save.textContent=save.disabled?'下書きに保存済み':'下書きに保存';
+    save.onclick=safe(async()=>{save.disabled=true;try{await api('posts',{action:'create',body:v.body,topic:v.topic,planned:'',settings_id:null});savedPreviews.add(previewKey);await reload();msg('日時未指定の下書きへ保存しました。公開には別途承認が必要です。');}catch(e){save.disabled=savedPreviews.has(previewKey);throw e;}});
     result.append(save);a.append(result);
    }
    history.append(a);
   }
   if(!polling&&jobs.some(j=>['queued','generating'].includes(j.status))){polling=true;setTimeout(async()=>{try{if(getState())await reload();}catch{}finally{polling=false;if(getState()?.generationJobs?.some(j=>j.kind==='test'&&['queued','generating'].includes(j.status)))render();}},15000);}
  }
- return {render,reset:()=>{edit();planDirty=false;$('#template-list').replaceChildren();$('#prompt-test-history').replaceChildren();}};
+ return {render,reset:()=>{edit();planDirty=false;planVersion=null;savedPreviews.clear();$('#template-list').replaceChildren();$('#prompt-test-history').replaceChildren();}};
 }

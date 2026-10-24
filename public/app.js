@@ -34,7 +34,7 @@ $('#reload').onclick=safe(reload);
 $('#reset-post').onclick=()=>{editing=null;$('#post-form').reset();};
 $('#post-form').onsubmit=safe(async e=>{const data=Object.fromEntries(new FormData(e.target));await api('posts',{...data,action:editing?'edit':'create',id:editing?.id,version:editing?.version,settings_id:state.settings?.id||null});editing=null;e.target.reset();await reload();msg('下書きを保存しました。');});
 $('#settings-form').onsubmit=safe(async e=>{await api('settings',Object.fromEntries(new FormData(e.target)));await reload();msg('投稿方針を保存しました。');});
-$('#preview-prompt').onclick=()=>{const s=Object.fromEntries(new FormData($('#settings-form')));$('#prompt').textContent='ネイス体操教室 広島段原ショッピングセンター校のThreads投稿案を3案作成してください。\n'+Object.entries(s).map(([k,v])=>k+': '+v).join('\n')+'\n不足情報は創作せず確認事項として分けてください。各投稿は500文字以内。';};
+$('#preview-prompt').onclick=()=>show('prompts');
 const promptStudio=setupPromptStudio({api,safe,msg,item,when,reload:()=>reload(),getState:()=>state,show});
 $('#logout').addEventListener('click',()=>promptStudio.reset());
 const reloadBeforePrompts=reload;reload=async()=>{await reloadBeforePrompts();promptStudio.render();};
