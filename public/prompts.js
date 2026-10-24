@@ -1,6 +1,6 @@
 // Loaded by app.js with the existing authenticated API; no new browser credentials.
 export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show,getGenerationPreview}){
- const $=s=>document.querySelector(s);let editing=null,dirty=false,polling=false,planDirty=false,planVersion=null,testing=false,currentJob=null;
+ const $=s=>document.querySelector(s);let editing=null,dirty=false,polling=false,planDirty=false,planVersion=null,testing=false,currentJob=null,execution=0;
  const savedPreviews=new Set();
  const form=$('#template-form');
  const values=()=>({...Object.fromEntries(new FormData(form)),active:form.elements.active.checked});
@@ -28,13 +28,13 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show,g
   if(currentJob.status==='generating'&&!testing){const p=document.createElement('p');p.textContent='前回のテストを処理中です。「最新の結果に更新」で履歴を確認してください。';panel.append(p);}
  }
  $('#test-template').onclick=safe(async()=>{
-  const data={...values(),request_id:crypto.randomUUID()};testing=true;currentJob=null;render();
+  const run=++execution,data={...values(),request_id:crypto.randomUUID()};testing=true;currentJob=null;render();
   msg('テストの文章を1件生成しています。結果はこのボタンの下に表示されます。');
-  try{currentJob=await api('prompts/test',data);testing=false;renderCurrent();
+  try{const result=await api('prompts/test',data);if(run!==execution)return;currentJob=result;testing=false;renderCurrent();
    msg(currentJob.status==='completed'?'1件のテスト結果を表示しました。':currentJob.test_error||'テストの処理状況を履歴で確認してください。');
    try{await reload();}catch{msg('テスト結果をこの画面に表示しました。共有履歴の再読み込みは後でもう一度お試しください。');}
-  }catch(error){currentJob={status:'needs_review',test_error:error.message};throw error;}
-  finally{testing=false;render();}
+  }catch(error){if(run!==execution)return;currentJob={status:'needs_review',test_error:error.message};throw error;}
+  finally{if(run===execution){testing=false;render();}}
  });
  $('#refresh-tests').onclick=safe(reload);
  function render(){
@@ -71,5 +71,5 @@ export function setupPromptStudio({api,safe,msg,item,when,reload,getState,show,g
   }
   if(!polling&&jobs.some(j=>['queued','generating'].includes(j.status))){polling=true;setTimeout(async()=>{try{if(getState())await reload();}catch{}finally{polling=false;if(getState()?.generationJobs?.some(j=>j.kind==='test'&&['queued','generating'].includes(j.status)))render();}},15000);}
  }
- return {render,reset:()=>{edit();planDirty=false;planVersion=null;savedPreviews.clear();$('#template-list').replaceChildren();$('#prompt-test-history').replaceChildren();}};
+ return {render,reset:()=>{execution++;testing=false;edit();planDirty=false;planVersion=null;savedPreviews.clear();$('#template-list').replaceChildren();$('#prompt-test-history').replaceChildren();}};
 }
