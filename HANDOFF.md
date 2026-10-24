@@ -2,6 +2,16 @@
 
 更新: 2026-10-24 JST。GPT-6 astra → GPT-6.1 sol。同じチャットで続行する前提。秘密キー・パスワードはこの文書に含まない。
 
+## 2026-10-24 トークン自動更新（最新）
+ユーザーが自動更新を依頼し、暗号化したThreadsトークンをSupabaseへ保存・復号鍵をCloudflare Secretへ保存して有効化することを明示承認済み。
+1039b66 / Deploy #11成功: https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40102396812 。SQL005適用済み。Cloudflare THREADS_TOKEN_ENCRYPTION_KEY保存済み（値はどこにも記載しない）。TOKEN_AUTO_REFRESH_ENABLED=trueをwranglerで管理。
+src/threads-token.js: AES-256-GCM、サーバーだけが復号。threads_credentialsはanon/authenticatedのテーブル読み取り不可、RPCもservice_roleのみ。leaseで更新の重複を防ぎ、失敗時は旧暗号文保持。publicTokenStatusのallowlist以外はブラウザーへ返さない。期限切れ・再接続状態では投稿claim前に停止し、保存済みトークンがある場合は旧Cloudflare Secretへfallbackしない。
+毎日21:30 JSTの既存Cronで更新対象を確認→共通トークンを読み出し→反響取得。成功から7日後に更新対象、失敗から25時間後に再確認対象（実際の実行はその後の21:30）。予約毎分・即時公開・反響は同じ暗号化保存トークンを使用。Make旧配信はInactiveのまま、旧接続トークンの同期は不要・未実装。
+2026-10-24 23:27:02 JSTに初回実更新・暗号化保存成功。DB healthy、last_error null、encryption_version 1。expires_at=2026-12-22T22:41:22.367Z（JST12/23 07:41）、next_attempt_at=2026-10-31T14:27:02.430113Z（JST10/31 23:27）。次の自動更新予定は11/01 21:30 JST。初回は管理者ボタンで実行。将来の定期更新実行は未到来。
+同じボタンを再実行→not_dueで更新日時が変わらないこと、更新後の保存トークンによる反響取得1件成功・失敗0件を確認。DB実機で権限・二重claim拒否・失敗時旧値保持もrollbackテスト成功。34件のNodeテスト通過。
+証跡 C:/Users/ayato/Documents/Codex/Threads-Automation-token-refresh-success.png 。再ログイン済み本番タブ24。
+次の保守は認証セッション更新、公開結果照合・復旧UI、期限切れ等からの再認証UI。暗号化鍵の削除・上書きは再暗号化なしに行わない。古い「トークン自動更新未実装」という記述はこの追記で解消。
+
 ## 2026-10-24 予約時刻の修正（最新追記）
 ユーザーが18:05に予約したが公開されなかったと報告。Makeは08/12/20のみ起動する一方UIは任意時刻を許可していた。ユーザーは「自由な時刻に予約したい」を選択。
 42147b6でCloudflare毎分Cronに予約公開を移行。MakeはAI生成に引き続き使用。claim_due_postとpublishClaimを再利用し、原子的claim・15分超過停止・不明時の再投稿禁止を維持。src/scheduler.js追加。反響Cronは21:30のまま分離。

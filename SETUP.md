@@ -13,14 +13,14 @@
 6. 反響画面で取得時点の累計値を確認します。最新15件の公開済み投稿が毎日21:30に対象になります。手動取得は同じ投稿について1時間に1回までです。
 
 ## 確認済み
-- GitHub Actions → Cloudflare本番配信成功（6440f34 / Deploy #10）。
+- GitHub Actions → Cloudflare本番配信成功（1039b66 / Deploy #11）。
 - Supabase Auth、下書き保存、管理者ログイン。
 - 投稿方針 → Make → OpenAI → 3案の下書き保存を実行し成功。
 - AI生成シナリオはActive、15分間隔。本文生成は依頼がある時のみ。
 - 予約公開はCloudflare毎分Cronへ移行済み。Makeの旧配信シナリオはInactive、AI生成シナリオは継続します。
 - 承認済み予約がない場合に公開処理へ進まないことを実行確認。
 - 即時投稿用ThreadsトークンをCloudflare Secretへ保存済み。
-- 毎分処理の分岐、停止設定、公開失敗時に再試行しないこと、準備状態の待機と安全なエラー記録を含む25件の自動テストを通過。
+- トークン暗号化・改ざん検知・期限切れ停止・更新失敗時の保持・管理者限定更新を含む34件の自動テストを通過。
 
 ## 公開テスト結果
 2026-10-24 17:49 JSTに管理画面の即時投稿で教室の挨拶を公開し、Threads上の本文と管理画面の公開済み記録を確認しました。
@@ -40,7 +40,10 @@ DB ID: caaaee45-8090-4176-94b9-d266757f3064 / Meta ID: 18140719726725229。
 - 投稿結果が不明な場合は「要確認」で停止します。再投稿せずThreads側の公開結果を照合してください。停止段階（create/status/publish/save）と安全なAPI数値コードを記録します。復旧画面は未実装です。
 - 予約を15分以上過ぎた場合は自動で後追い公開せず「要確認」にします。
 - タブを再読込した場合やログイン期限が切れた場合は再ログインしてください。
-- Threadsトークンの自動更新は未実装です。期限前にMetaで更新し、MakeのThreads接続とCloudflareのTHREADS_ACCESS_TOKENへ反映します。秘密キーを資料やチャットへ記載しないでください。
+- Threadsトークンの自動更新は有効です。毎日21:30 JSTに更新対象を確認し、成功から7日経過後の定期確認で更新します。失敗時は旧トークンを保持し、25時間経過後の定期確認で再確認します。期限切れ・無効化が確認された場合は再接続が必要です。
+- 予約・即時公開・反響取得はSupabaseの暗号化済みトークンを読み出して共通利用します。CloudflareのTHREADS_ACCESS_TOKENは初期設定用で、自動更新後に古い値へ戻しません。停止済みMakeの旧Threads接続は自動更新対象ではありません。旧配信シナリオを再有効化しないでください。
+- 管理画面「Threads接続」で状態・有効期限・最終更新・次回更新対象時刻を確認できます。対象時刻は更新可能になる時刻で、実際の自動実行はその後の21:30 JSTです。権限取消しや期限切れからの再認証UIは未実装です。
+- 暗号化鍵THREADS_TOKEN_ENCRYPTION_KEYはCloudflare Secretのみ。削除・変更すると保存済みトークンを復号できなくなるため、再暗号化なしに変更しないでください。秘密キーを資料やチャットへ記載しないでください。
 - AI依頼確認は15分ごと（1日96回）。依頼がなくてもMakeの確認処理はクレジットを消費します。Makeの残量・プランを確認してください。プラン購入は行っていません。
 - 反響対象はこの管理画面で公開・記録された最新15投稿です。過去のThreads投稿の取り込みは未実装です。数字は累計値なので履歴同士を合算しません。
 - スタッフ追加はSupabase Authとmembersへの登録が必要です。管理画面からのスタッフ招待機能は未実装です。
@@ -48,5 +51,11 @@ DB ID: caaaee45-8090-4176-94b9-d266757f3064 / Meta ID: 18140719726725229。
 ## 配信と秘密情報
 コード: GitHub hasehasehaseha/Threads-Automation
 配信: ActionsのDeploy dashboardをmainで実行。Cloudflareの設定ページを操作する前は最新の配信状態に再読み込みします。
-秘密情報: SUPABASE_ANON_KEY、SUPABASE_SERVICE_ROLE_KEY、MAKE_API_TOKEN、MAKE_AI_TOKEN、THREADS_ACCESS_TOKENはCloudflare Secret。Makeには用途別の接続のみ保存し、service_roleは渡しません。
-SQL: supabase/001〜004を適用済み。既存DBへ001を再実行しないでください。
+秘密情報: SUPABASE_ANON_KEY、SUPABASE_SERVICE_ROLE_KEY、MAKE_API_TOKEN、MAKE_AI_TOKEN、THREADS_ACCESS_TOKEN、THREADS_TOKEN_ENCRYPTION_KEYはCloudflare Secret。Makeには用途別の接続のみ保存し、service_roleは渡しません。
+SQL: supabase/001〜005を適用済み。既存DBへ001を再実行しないでください。
+
+## トークン自動更新の検証
+2026-10-24 23:27 JST、管理者の初期設定操作でMetaの実トークンを更新し、AES-256-GCM暗号化保存に成功。DBはhealthy、last_error null。有効期限は2026-12-23 07:41 JST（Metaのexpires_inに基づく）、次回更新対象は2026-10-31 23:27 JST。定期実行による次の更新予定は2026-11-01 21:30 JSTです。
+同じボタンの再実行はnot_dueとなり、最終更新・最終試行が変わらないことを確認。保存済みトークンを復号して反響取得1件成功・失敗0件を確認。
+DB実機でanon/authenticatedの読み取り不可・anonの更新RPC実行不可・service_roleのみ読み取り可能を確認。二重claim拒否と更新失敗時の旧値保持も一時データのrollback検証で確認。
+初回更新は実行済み。7日後の将来の自動実行結果はまだ到来していません。

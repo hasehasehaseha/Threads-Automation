@@ -31,5 +31,6 @@ https://www.threads.com/@neis_hiroshima/post/De4UPGAlfiK
 Makeの配信シナリオは停止したまま。AI生成シナリオは変更していません。
 
 ## 残る保守
-Threadsトークンの自動更新と公開結果の照合・復旧UIは未実装。
+ThreadsトークンはCloudflare/Supabaseで自動更新する構成へ移行済み（1039b66 / Deploy #11、初回実更新成功）。停止済みMakeの旧Threads接続には更新しません。AIシナリオはThreadsトークンを使用しません。
+公開結果の照合・復旧UI、期限切れや権限取消しからの再認証UIは未実装。
 運用手順と制限はSETUP.mdを参照。
