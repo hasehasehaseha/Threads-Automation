@@ -15,7 +15,7 @@ begin
  if (select count(*) from public.posts)<>n then raise exception 'duplicate callback created posts'; end if;
  -- Temporarily free tomorrow's unique slot, without deleting any saved job.
  update public.generation_jobs set target_date=target_date+3650 where kind='production' and target_date=(now() at time zone 'Asia/Tokyo')::date+1;
- select * into j from public.request_generation_job(actor);
+ select * into j from public.request_configured_generation(actor,(now() at time zone 'Asia/Tokyo')::date+1,(select array_agg(id) from (select id from public.prompt_templates where active order by created_at,id limit 3) t),array['08:00','12:00','20:00']);
  if jsonb_array_length(j.prompt_snapshot->'templates')<>3 then raise exception 'missing prompt plan'; end if;
  snapshot:=j.prompt_snapshot->'templates'->0->>'instructions';
  update public.prompt_templates set instructions='変更後の検証用指示' where id=(j.prompt_snapshot->'templates'->0->>'id')::uuid;

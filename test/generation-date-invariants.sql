@@ -16,10 +16,10 @@ begin
  perform public.complete_generation_job(j.id,claim,'[]');
  if (select count(*) from public.posts)<>n+3 then raise exception 'duplicate results'; end if;
  begin
-  perform public.request_generation_for_date(actor,(now() at time zone 'Asia/Tokyo')::date);
+  perform public.request_generation_for_date(actor,(now() at time zone 'Asia/Tokyo')::date-1);
   raise exception 'past date accepted';
  exception when raise_exception then
-  if sqlerrm<>'choose tomorrow or later' then raise; end if;
+  if sqlerrm<>'choose today or later' then raise; end if;
  end;
  if has_function_privilege('anon','public.request_generation_for_date(uuid,date)','EXECUTE') or has_function_privilege('authenticated','public.request_generation_for_date(uuid,date)','EXECUTE') then raise exception 'public access'; end if;
 end $$;
