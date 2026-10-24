@@ -3,6 +3,8 @@
 
 /* Compact phone layout; 16px form text also prevents iOS focus zoom. */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+#generate-date-form{align-items:flex-end}
+#generate-date-form input,#generate-date-form button{height:48px}
 @media(max-width:600px){
  body{font-size:14px;line-height:1.65;overflow-wrap:anywhere}
  aside{padding:12px 12px 8px;border-right:0;border-bottom:1px solid #e0e8e8}
