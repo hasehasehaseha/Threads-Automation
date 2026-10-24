@@ -1,4 +1,4 @@
-import {generationAutomation} from './generation.js';
+import {generationAutomation,validateGenerationDate} from './generation.js';
 import {immediateReady,publishClaim,checkThreadsConnection} from './publish.js';
 import {collectMetrics} from './metrics.js';
 import {runScheduled,publishDue} from './scheduler.js';
@@ -110,7 +110,7 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  }
  if(path==='/api/generate'){
  if(!env.MAKE_AI_TOKEN)return json({error:'AI生成は接続準備中です'},503);
- return json(await db(env,'rpc/request_generation_job','POST',{p_actor:m.user_id}));
+ return json(data.target_date===undefined?await db(env,'rpc/request_generation_job','POST',{p_actor:m.user_id}):await db(env,'rpc/request_generation_for_date','POST',{p_actor:m.user_id,p_target:validateGenerationDate(data.target_date)}));
  }
  if(path==='/api/settings'){
  if(m.role!=='admin')return json({error:'投稿方針の変更は管理者のみ可能です。'},403);

@@ -129,3 +129,10 @@ Cloudflare Workersのfetchはredirect:'error'非対応でMetaへの送信前に�
 6. 新しい検証結果と残作業をこの文書に更新し、ユーザーへ成功と未検証を分けて伝える。
 
 この資料は品質維持のための根拠であり、同一品質を保証するものではない。実際のコード・UI・テスト結果を確認して続行する。
+
+## 2026-10-25 07:54 JST: 翌日3案の定期生成を実証
+- 10/26 production job `aff1e88b-6df1-48f7-86e2-021c25e429db` was requested at 07:48:33 JST. It was queued normally, not stuck.
+- Make scheduled run at 07:53:47 JST succeeded in 5 seconds, 3 operations / 3 credits: https://eu2.make.com/556148/scenarios/10028014/logs/8dc9dabbba514ed4831280c09a7e6d99
+- Production dashboard latest-information refresh showed completed and exactly three new unapproved drafts at 10/26 08:00, 12:00, 20:00 (共感 / 習い事選び / 教室紹介). No manual Make run, duplicate request, code changes or publishing performed.
+- Production generation status does not automatically refresh; users must click 最新情報に更新. Make checks every 15 minutes, so queued up to 15 minutes is expected.
+- Proof: C:/Users/ayato/Documents/Codex/Threads-Automation-generation-20261026-success.png

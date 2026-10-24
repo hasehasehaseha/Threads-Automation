@@ -5,6 +5,7 @@ export function generationPrompt(settings,snapshot=null) {
  return `ネイス体操教室 広島段原ショッピングセンター校のThreads投稿下書きを3件作成してください。
 以下はスタッフが保存した投稿方針です。確認済みの教室情報だけを事実として使用してください。
 ${JSON.stringify(settings)}
+${snapshot?.target_date?'投稿予定日（日本時間）：'+snapshot.target_date+'。現在の日付ではなく、この投稿日に合う文章にしてください。日付の明記は必須ではありません。':''}
 ${selected}
 各本文の長さは個別プロンプトの指定を優先し、指定がなければ150〜300文字を目安にしてください。ただし必ず500文字以内。3件の切り口を変えてください。
 確認済み情報にない料金、対象年齢、日程、空き状況、キャンペーン、指導内容、教室の雰囲気、設備、スタッフの対応、子どもの様子は推測で補わないでください。
@@ -40,4 +41,13 @@ export async function generationAutomation(req,env,path,db){
   }
   return Response.json({error:'見つかりません'},{status:404});
  }catch{return Response.json({error:'AI下書きを保存できませんでした。生成履歴を確認してください。'},{status:400});}
+}
+
+export function validateGenerationDate(value,now=new Date()){
+ if(typeof value!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(value)||value.startsWith('0000'))throw new Error('生成する日付を指定してください');
+ const date=new Date(value+'T00:00:00Z');
+ if(!Number.isFinite(date.valueOf())||date.toISOString().slice(0,10)!==value)throw new Error('日付が不正です');
+ const today=new Date(now.valueOf()+9*3600000).toISOString().slice(0,10);
+ if(value<=today)throw new Error('明日以降の日付を指定してください');
+ return value;
 }
