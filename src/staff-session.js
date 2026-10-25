@@ -9,7 +9,7 @@ function response(data,status=200,session,clear=false){
  return new Response(JSON.stringify(data),{status,headers});
 }
 const transient=r=>r.status===429||r.status>=500;
-async function auth(env,path,method='GET',body,access){return fetch(env.SUPABASE_URL+'/auth/v1/'+path,{method,headers:{apikey:env.SUPABASE_ANON_KEY,...(body?{'Content-Type':'application/json'}:{}),...(access?{Authorization:'Bearer '+access}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000),redirect:'error'});}
+async function auth(env,path,method='GET',body,access){const r=await fetch(env.SUPABASE_URL+'/auth/v1/'+path,{method,headers:{apikey:env.SUPABASE_ANON_KEY,...(body?{'Content-Type':'application/json'}:{}),...(access?{Authorization:'Bearer '+access}:{})},body:body?JSON.stringify(body):undefined,signal:AbortSignal.timeout(12000),redirect:'manual'});if(r.status>=300&&r.status<400)throw new Error('unexpected auth redirect');return r;}
 async function staff(env,access,db){
  const r=await auth(env,'user','GET',null,access);if(transient(r))throw new Error('temporary');if(!r.ok)return null;const user=await r.json();if(typeof user.id!=='string')return null;
  return (await db(env,'members?user_id=eq.'+encodeURIComponent(user.id)+'&active=eq.true&select=user_id,role'))[0]||null;

@@ -4,7 +4,7 @@ const env={SUPABASE_URL:'https://db.example',SUPABASE_ANON_KEY:'public',SUPABASE
 const request=(path,data={},cookie='',origin='https://studio.example')=>new Request('https://studio.example/api/auth/'+path,{method:'POST',headers:{Origin:origin,Cookie:cookie},body:JSON.stringify(data)});
 const db=async()=>[{user_id:'staff',role:'admin'}];
 test('staff login sets HttpOnly persistent cookies and never returns credentials in JSON',async t=>{
- t.mock.method(globalThis,'fetch',async(url,options)=>{if(url.includes('grant_type=password')){assert.deepEqual(JSON.parse(options.body),{email:'staff@example.com',password:'example-password'});return Response.json({access_token:valid,refresh_token:'refresh-private'});}return Response.json({id:'staff'});});
+ t.mock.method(globalThis,'fetch',async(url,options)=>{assert.equal(options.redirect,'manual');if(url.includes('grant_type=password')){assert.deepEqual(JSON.parse(options.body),{email:'staff@example.com',password:'example-password'});return Response.json({access_token:valid,refresh_token:'refresh-private'});}return Response.json({id:'staff'});});
  const r=await staffSession(request('login',{email:'staff@example.com',password:'example-password'}),env,'/api/auth/login',db);assert.equal(r.status,200);assert.deepEqual(await r.json(),{authenticated:true});
  const cookies=r.headers.getSetCookie();assert.equal(cookies.length,2);for(const c of cookies){assert.match(c,/HttpOnly; Secure; SameSite=Strict/);assert.match(c,/Max-Age=2592000/);}assert.match(cookies[1],/Path=\/api\/auth/);
 });
