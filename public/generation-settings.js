@@ -84,7 +84,7 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
    const end=jobs.at(-1)?.target_date||'',count=batch.prompt_snapshot.count,total=done.reduce((n,j)=>n+j.count,0);
    const card=item('週間生成 '+batch.start_date+'〜'+end,done.length+'/7日完了・保存済み'+total+'件'+(pending.length?' ／ 処理待ち・生成中 '+pending.length+'日':' ／ 処理終了')+(review.length?' ／ 要確認 '+review.length+'日':''));
    const plan=document.createElement('p');plan.className='post-meta';plan.textContent='依頼時：1日'+count+'件×7日＝'+(count*7)+'件 ／ 新規'+batch.new_job_ids.length+'日・既存'+(7-batch.new_job_ids.length)+'日（既存日はその設定を使用）';card.append(plan);
-   for(const j of jobs){const p=document.createElement('p');p.className='post-meta';p.textContent=j.target_date+'：'+(labels[j.status]||j.status)+'（'+j.count+'件）'+(j.new?'':'・既存の依頼')+(j.error?' ／ '+j.error:'');card.append(p);}
+   for(const j of jobs){const p=document.createElement('p');p.className='post-meta';p.textContent=j.target_date+'：'+(j.status==='queued'?'順番待ち（毎分確認）':labels[j.status]||j.status)+'（'+j.count+'件）'+(j.new?'':'・既存の依頼')+(j.error?' ／ '+j.error:'');card.append(p);}
    weeklyStatus.append(card);
   }
   for(const j of (state.generationJobs||[]).filter(j=>j.kind!=='test')){
