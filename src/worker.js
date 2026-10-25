@@ -15,7 +15,7 @@ export function validatePost(data){
 }
 export function isReady(env){return !!(env.SUPABASE_URL&&env.SUPABASE_ANON_KEY&&env.SUPABASE_SERVICE_ROLE_KEY);}
 async function db(env,path,method='GET',body){
- const r=await fetch(env.SUPABASE_URL+'/rest/v1/'+path,{method,headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY,'Content-Type':'application/json',Prefer:'return=representation'},body:body===undefined?undefined:JSON.stringify(body)});
+const r=await fetch(env.SUPABASE_URL+'/rest/v1/'+path,{method,headers:{apikey:env.SUPABASE_SERVICE_ROLE_KEY,Authorization:'Bearer '+env.SUPABASE_SERVICE_ROLE_KEY,'Content-Type':'application/json',Prefer:'return=representation'+(path.startsWith('post_memory?')&&method==='POST'?',resolution=merge-duplicates':'')},body:body===undefined?undefined:JSON.stringify(body)});
  if(!r.ok)throw new Error('保存できませんでした。権限、日時の重複、他の人による変更を確認して再読み込みしてください。');
  return r.status===204?null:r.json();
 }
@@ -56,19 +56,25 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  if(!path.startsWith('/api/'))return env.ASSETS.fetch(req);
  if(path==='/api/config'&&req.method==='GET')return json({ready:isReady(env),supabaseUrl:env.SUPABASE_URL||'',anonKey:env.SUPABASE_ANON_KEY||'',automationEnabled:env.AUTOMATION_ENABLED==='true',handle:'neis_hiroshima'});
  if(!isReady(env))return json({error:'Supabaseの接続設定がまだ完了していません。'},503);
- if(path.startsWith('/api/generation/'))return generationAutomation(req,env,path,db);
+ if(path.startsWith('/api/generation/'))return generationAutomation(req,env,path,db,ctx);
  if(path.startsWith('/api/automation/'))return automation(req,env,path);
  if(req.method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'同じ管理画面から操作してください。'},403);
  try{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);
  if(path==='/api/state'&&req.method==='GET'){
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
- const generationJobs=env.MAKE_AI_TOKEN||env.OPENAI_API_KEY?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot,test_error&order=created_at.desc&limit=30'):[];
+ const generationJobs=env.MAKE_AI_TOKEN||env.OPENAI_API_KEY?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot,test_error'+(env.AI_HISTORY_ENABLED==='true'?',ai_report':'')+'&order=created_at.desc&limit=30'):[];
  const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc,id.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
- return json({member:m,posts,settings:settings[0]||null,metrics,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
+ const ai=env.AI_HISTORY_ENABLED==='true'?{config:(await db(env,'ai_config?id=eq.1'))[0],usage:await db(env,'rpc/ai_month_usage','POST',{})}:null;
+ return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/ai-config'){
+  if(m.role!=='admin')return json({error:'AIモデルの変更は管理者のみ可能です'},403);
+  if(!['gpt-6.1-sol','gpt-6-luna'].includes(data.model)||!Number.isInteger(data.version))return json({error:'モデル設定が不正です'},400);
+  return json(await db(env,'rpc/save_ai_config','POST',{p_actor:m.user_id,p_version:data.version,p_model:data.model}));
+ }
  if(path==='/api/prompts'){
  if(m.role!=='admin')return json({error:'プロンプトの保存は管理者のみ可能です'},403);
  if(data.id&&(!/^[0-9a-f-]{36}$/i.test(data.id)||!Number.isInteger(data.version)))return json({error:'プロンプトの版が不正です'},400);
@@ -93,7 +99,9 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  const {generationPrompt}=await import('./generation.js');
  const settings=(await db(env,'editorial_settings?order=id.desc&limit=1'))[0];
  if(!settings)return json({error:'先に投稿方針を保存してください'},400);
- return json({prompt:generationPrompt(settings.content,validateTest(data))});
+ let prompt=generationPrompt(settings.content,validateTest(data));
+ if(env.AI_HISTORY_ENABLED==='true'){const {historyContext,buildHistoryInput}=await import('./ai-generation.js');prompt=buildHistoryInput({kind:'test',settings_snapshot:settings.content,prompt_snapshot:validateTest(data)},await historyContext(env,db)).prompt;}
+ return json({prompt});
  }
  if(path==='/api/prompts/production-preview'){
  const {generationPrompt}=await import('./generation.js');
@@ -102,7 +110,9 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  if(!settings)return json({error:'先に投稿方針を保存してください'},400);
  const snapshot=await db(env,'rpc/generation_snapshot','POST',{p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)});
  snapshot.target_date=target;
- return json({prompt:generationPrompt(settings.content,snapshot),count:slots.length,target_date:target,mode:'production'});
+ let prompt=generationPrompt(settings.content,snapshot);
+ if(env.AI_HISTORY_ENABLED==='true'){const {historyContext,buildHistoryInput}=await import('./ai-generation.js');prompt=buildHistoryInput({kind:'production',target_date:target,settings_snapshot:settings.content,prompt_snapshot:snapshot},await historyContext(env,db,target),await db(env,'rpc/ai_month_usage','POST',{})).prompt;}
+ return json({prompt,count:slots.length,target_date:target,mode:'production'});
  }
  if(path==='/api/threads/token/refresh'){
  if(m.role!=='admin')return json({error:'接続の更新は管理者のみ可能です'},403);

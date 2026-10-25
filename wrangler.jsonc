@@ -3,7 +3,7 @@
   "account_id": "747302b9f123c705d3cd7a1197572d71",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-22",
-  "vars": {"SUPABASE_URL":"https://wfbbolgkfrydwgzxrzdi.supabase.co", "IMMEDIATE_ENABLED":"true", "AUTOMATION_ENABLED":"true", "TOKEN_AUTO_REFRESH_ENABLED":"true"},
+  "vars": {"SUPABASE_URL":"https://wfbbolgkfrydwgzxrzdi.supabase.co", "IMMEDIATE_ENABLED":"true", "AUTOMATION_ENABLED":"true", "TOKEN_AUTO_REFRESH_ENABLED":"true", "AI_HISTORY_ENABLED":"true"},
   "triggers": {"crons":["* * * * *", "30 12 * * *"]},
   "assets": {"directory":"./public", "binding":"ASSETS", "run_worker_first":["/api/*"]}
 }

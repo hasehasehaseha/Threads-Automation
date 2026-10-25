@@ -65,6 +65,9 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   for(const j of (state.generationJobs||[]).filter(j=>j.kind!=='test')){
    const snapshot=j.prompt_snapshot,count=snapshot?.count||3;
    const card=item(j.target_date+' 分 · '+count+'件',labels[j.status]||j.status);
+   if(j.ai_report){const p=document.createElement('p');p.className='post-meta';p.textContent=j.ai_report.model+' ／ 履歴'+j.ai_report.historyCount+'件を確認・指示に'+j.ai_report.includedCount+'件を参照'+(j.ai_report.retried?' ／ 類似のため1回再生成':'');card.append(p);}
+   if(j.test_error){const p=document.createElement('p');p.textContent=j.test_error;card.append(p);}
+   if(j.status==='needs_review'&&j.preview_posts)for(const post of j.preview_posts){const p=document.createElement('p');p.className='post-body';p.textContent=post.body;card.append(p);}
    if(snapshot?.templates){const p=document.createElement('p');p.className='post-meta';p.textContent=snapshot.templates.map((t,i)=>(snapshot.times?.[i]||defaults[3][i])+' '+t.name).join(' ／ ');card.append(p);}target.append(card);
   }
   if(!pollTimer&&(state.generationJobs||[]).some(j=>j.kind!=='test'&&['queued','generating'].includes(j.status))){pollTimer=setTimeout(async()=>{pollTimer=null;try{if(getState())await reload();}catch{}},15000);}

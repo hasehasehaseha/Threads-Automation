@@ -12,6 +12,13 @@ export async function runImmediateTest(env,actor,data,db){
  const claim=crypto.randomUUID(),snapshot=validateTest(data);
  const job=await db(env,'rpc/begin_immediate_prompt_test','POST',{p_actor:actor,p_snapshot:snapshot,p_id:data.request_id,p_claim:claim});
  if(job.claim_id!==claim)return job; // Replayed requests never trigger another paid call.
+ if(env.AI_HISTORY_ENABLED==='true'){
+  try{const {generateWithHistory}=await import('./ai-generation.js');return await generateWithHistory(env,db,job);}
+  catch{const message='AIテストを完了できませんでした。OpenAI接続と生成履歴を確認してください。自動再実行はしません。';
+   await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+claim+'&status=eq.generating','PATCH',{status:'needs_review',test_error:message}).catch(()=>{});
+   return {...job,status:'needs_review',test_error:message};
+  }
+ }
  let posts;
  try{
   const r=await fetch('https://api.openai.com/v1/responses',{
