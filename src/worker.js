@@ -5,6 +5,7 @@ import {runScheduled,publishDue} from './scheduler.js';
 import {threadsEnvironment,tokenStatus,initializeToken,refreshThreadsToken} from './threads-token.js';
 import {validateTemplate,validateTest} from './prompts.js';
 import {runImmediateTest,publicTestResult} from './instant-preview.js';
+import {runWeeklyGeneration} from './weekly-generation.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -47,7 +48,9 @@ async function automation(req,env,path){
  return json({error:'見つかりません'},404);
  }catch{return json({error:'自動処理の結果を確定できません。再投稿せず管理者が確認してください。'},400);}
 }
-export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
+export default {async scheduled(event,env,ctx){
+ if(event.cron==='* * * * *')ctx.waitUntil(runWeeklyGeneration(env,db));
+ ctx.waitUntil((async()=>{
  if(event.cron==='30 12 * * *')await refreshThreadsToken(env,db);
  const connectedEnv=await threadsEnvironment(env,db);
  return runScheduled(event,connectedEnv,db,{publishDue,collectMetrics});
@@ -66,10 +69,17 @@ export default {async scheduled(event,env,ctx){ctx.waitUntil((async()=>{
  const generationJobs=env.MAKE_AI_TOKEN||env.OPENAI_API_KEY?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot,test_error'+(env.AI_HISTORY_ENABLED==='true'?',ai_report':'')+'&order=created_at.desc&limit=30'):[];
  const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc,id.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
  const ai=env.AI_HISTORY_ENABLED==='true'?{config:(await db(env,'ai_config?id=eq.1'))[0],usage:await db(env,'rpc/ai_month_usage','POST',{})}:null;
- return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
+ const generationBatches=env.AI_HISTORY_ENABLED==='true'?await db(env,'rpc/weekly_generation_status','POST',{}):[];
+ return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationBatches,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/generate-week'){
+  if(env.AI_HISTORY_ENABLED!=='true'||!env.OPENAI_API_KEY)return json({error:'週間生成は接続準備中です'},503);
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.request_id))return json({error:'依頼IDが不正です'},400);
+  const target=validateGenerationDate(data.start_date),slots=validateGenerationSlots(data.slots,target);
+  return json(await db(env,'rpc/request_weekly_generation','POST',{p_actor:m.user_id,p_id:data.request_id,p_start:target,p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)}));
+ }
  if(path==='/api/ai-config'){
   if(m.role!=='admin')return json({error:'AIモデルの変更は管理者のみ可能です'},403);
   if(!['gpt-6.1-sol','gpt-6-luna'].includes(data.model)||!Number.isInteger(data.version))return json({error:'モデル設定が不正です'},400);
