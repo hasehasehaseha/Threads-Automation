@@ -39,7 +39,7 @@ const reloadWithConnection=reload;reload=async()=>{await reloadWithConnection();
 };
 $('#refresh-threads-token').onclick=safe(async()=>{const b=$('#refresh-threads-token');b.disabled=true;try{const r=await api('threads/token/refresh',{});await reload();msg(r.state==='refreshed'?'Threadsトークンを更新して安全に保存しました。':r.state==='error'?r.error:'次回更新対象時刻に自動確認します。');}finally{b.disabled=state?.member.role!=='admin'||!state?.threadsToken?.enabled||state.threadsToken.status==='reconnect';}});
 $('#refresh-metrics').onclick=safe(async()=>{const b=$('#refresh-metrics');b.disabled=true;try{const r=await api('metrics/refresh',{});await reload();msg(r.total===0?'この管理画面からの公開済み投稿はまだありません。':`反響を${r.saved}件取得しました。取得済み${r.skipped}件、取得失敗${r.failed}件。`);}finally{b.disabled=false;}});
-$('#reload').onclick=safe(reload);
+$('#reload').onclick=safe(()=>reload());
 $('#reset-post').onclick=()=>{editing=null;$('#post-form').reset();};
 $('#post-form').onsubmit=safe(async e=>{const data=Object.fromEntries(new FormData(e.target));await api('posts',{...data,action:editing?'edit':'create',id:editing?.id,version:editing?.version,settings_id:state.settings?.id||null});editing=null;e.target.reset();await reload();msg('下書きを保存しました。');});
 $('#settings-form').onsubmit=safe(async e=>{await api('settings',Object.fromEntries(new FormData(e.target)));await reload();msg('投稿方針を保存しました。');});
