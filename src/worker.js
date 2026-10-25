@@ -7,6 +7,7 @@ import {validateTemplate,validateTest} from './prompts.js';
 import {runImmediateTest,publicTestResult} from './instant-preview.js';
 import {runWeeklyGeneration} from './weekly-generation.js';
 import {validateApprovalPreview,validateBulkApproval} from './bulk-approval.js';
+import {notificationEmail,notificationSettings} from './approval-notifications.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -35,6 +36,14 @@ async function automation(req,env,path){
  if(path==='/api/automation/check')return json({connected:true,publishingEnabled:env.AUTOMATION_ENABLED==='true'});
  if(path==='/api/automation/claim'&&env.AUTOMATION_ENABLED!=='true')return json({error:'自動投稿は停止中です'},409);
  try{
+ if(path==='/api/automation/notification-claim'){
+  const n=await db(env,'rpc/claim_approval_notification','POST',{});return json({notification:n?notificationEmail(n):null});
+ }
+ if(path==='/api/automation/notification-result'){
+  const raw=await req.text();if(raw.length>1000)return json({error:'入力が大きすぎます'},413);const d=JSON.parse(raw),uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if(!uuid.test(d.id)||!uuid.test(d.claim_id)||typeof d.message_id!=='string'||!d.message_id||d.message_id.length>200)return json({error:'結果形式が不正です'},400);
+  return json({saved:await db(env,'rpc/complete_approval_notification','POST',{p_id:d.id,p_claim:d.claim_id,p_message:d.message_id})});
+ }
  if(path==='/api/automation/claim'){
  const rows=await db(env,'rpc/claim_due_post','POST',{});
  const p=rows[0];return json({post:p?{id:p.id,claim_id:p.claim_id,body:p.body,scheduled_at:p.scheduled_at}:null});
@@ -66,15 +75,22 @@ export default {async scheduled(event,env,ctx){
  try{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);
  if(path==='/api/state'&&req.method==='GET'){
+ const notifications=m.role==='admin'?{settings:(await db(env,'approval_notification_settings?id=eq.1'))[0],deliveries:await db(env,'approval_notifications?select=id,target_date,slot,kind,recipient,status,created_at,claimed_at,sent_at&order=created_at.desc&limit=20'),ready:!!env.MAKE_API_TOKEN}:null;
  const [posts,settings,metrics]=await Promise.all([db(env,'posts?order=created_at.desc&limit=300'),db(env,'editorial_settings?order=id.desc&limit=1'),db(env,'metric_snapshots?order=captured_at.desc&limit=300')]);
  const generationJobs=env.MAKE_AI_TOKEN||env.OPENAI_API_KEY?await db(env,'generation_jobs?select=id,target_date,kind,status,created_at,completed_at,preview_posts,prompt_snapshot,test_error'+(env.AI_HISTORY_ENABLED==='true'?',ai_report':'')+'&order=created_at.desc&limit=30'):[];
  const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc,id.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
  const ai=env.AI_HISTORY_ENABLED==='true'?{config:(await db(env,'ai_config?id=eq.1'))[0],usage:await db(env,'rpc/ai_month_usage','POST',{})}:null;
  const generationBatches=env.AI_HISTORY_ENABLED==='true'?await db(env,'rpc/weekly_generation_status','POST',{}):[];
- return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationBatches,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
+ return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationBatches,notifications,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/notifications/settings'||path==='/api/notifications/test'){
+  if(m.role!=='admin')return json({error:'通知設定は管理者のみ可能です'},403);
+  if(path.endsWith('settings'))return json(await db(env,'rpc/save_approval_notifications','POST',{p_actor:m.user_id,...notificationSettings(data)}));
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.request_id))return json({error:'依頼IDが不正です'},400);
+  return json({id:await db(env,'rpc/request_approval_notification_test','POST',{p_actor:m.user_id,p_request:data.request_id})});
+ }
  if(path==='/api/posts/trash'){
   if(m.role!=='admin')return json({error:'削除・復元は管理者のみ可能です'},403);
   if(!/^[0-9a-f-]{36}$/i.test(data.id)||!Number.isInteger(data.version)||!['trash','restore'].includes(data.action))return json({error:'投稿または操作が不正です'},400);

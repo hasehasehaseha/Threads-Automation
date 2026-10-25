@@ -1,3 +1,4 @@
+import {setupApprovalNotifications} from './approval-notifications.js';
 import {setupPostList} from './post-list.js';
 import {setupGenerationStudio} from './generation-settings.js';
 import {setupPromptStudio} from './prompts.js';
@@ -56,5 +57,8 @@ $('#logout').addEventListener('click',()=>bulkApproval.reset());
 const reloadBeforeBulk=reload;reload=async()=>{await reloadBeforeBulk();bulkApproval.render();};
 const postList=setupPostList({renderCard:renderPostCard,getState:()=>state,show});
 $('#logout').addEventListener('click',()=>postList.reset());
+const notificationStudio=setupApprovalNotifications({api,safe,msg,getState:()=>state,reload:()=>reload(),when});
+$('#logout').addEventListener('click',()=>notificationStudio.reset());
+const reloadBeforeNotifications=reload;reload=async()=>{await reloadBeforeNotifications();notificationStudio.render();};
 try{const r=await fetch('/api/config');if(!r.ok)throw new Error();config=await r.json();$('#connection').textContent=config.ready?'共有データ保存に接続済みです。ログイン後に各機能の状態を確認できます。':'Supabase未接続です。接続設定後にスタッフログインを開始できます。';$('#login-form').querySelector('button').disabled=!config.ready;}catch{$('#connection').textContent='サーバーに接続できません。Cloudflareへの配信状態を確認してください。';$('#login-form').querySelector('button').disabled=true;}
 
