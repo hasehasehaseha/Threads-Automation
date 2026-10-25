@@ -1,8 +1,9 @@
-const groups={upcoming:'投稿予定',draft:'下書き',published:'投稿済み',attention:'要確認・失敗',all:'すべて'};
+const groups={upcoming:'投稿予定',draft:'下書き',published:'投稿済み',attention:'要確認・失敗',all:'すべて',trash:'ごみ箱'};
 export function selectPosts(posts,{group='upcoming',date='',query=''}={}){
  const now=Date.now(),q=query.trim().toLocaleLowerCase();
  return posts.filter(p=>{
-  const status=group==='all'||(group==='upcoming'?['scheduled','publishing'].includes(p.status)||(p.status==='draft'&&new Date(p.scheduled_at).valueOf()>now):group==='attention'?['failed','needs_review'].includes(p.status):p.status===group);
+  if(group==='trash'?!p.deleted_at:!!p.deleted_at)return false;
+  const status=group==='all'||group==='trash'||(group==='upcoming'?['scheduled','publishing'].includes(p.status)||(p.status==='draft'&&new Date(p.scheduled_at).valueOf()>now):group==='attention'?['failed','needs_review'].includes(p.status):p.status===group);
   const day=p.scheduled_at?new Date(new Date(p.scheduled_at).valueOf()+9*3600000).toISOString().slice(0,10):'';
   return status&&(!date||day===date)&&(!q||((p.topic||'')+' '+p.body).toLocaleLowerCase().includes(q));
  }).sort((a,b)=>{const ta=new Date(a.scheduled_at||a.created_at).valueOf()||0,tb=new Date(b.scheduled_at||b.created_at).valueOf()||0;return (group==='upcoming'?ta-tb:tb-ta)||a.id.localeCompare(b.id);});

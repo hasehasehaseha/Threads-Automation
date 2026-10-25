@@ -75,6 +75,12 @@ export default {async scheduled(event,env,ctx){
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/posts/trash'){
+  if(m.role!=='admin')return json({error:'削除・復元は管理者のみ可能です'},403);
+  if(!/^[0-9a-f-]{36}$/i.test(data.id)||!Number.isInteger(data.version)||!['trash','restore'].includes(data.action))return json({error:'投稿または操作が不正です'},400);
+  try{return json(await db(env,'rpc/trash_post','POST',{p_actor:m.user_id,p_id:data.id,p_version:data.version,p_restore:data.action==='restore'}));}
+  catch{return json({error:'変更できませんでした。投稿の状態が変わった可能性があります。最新情報を確認してください。'},409);}
+ }
  if(path==='/api/posts/bulk-preview'||path==='/api/posts/bulk-approve'){
   if(m.role!=='admin')return json({error:'一括承認は管理者のみ可能です'},403);
   const args=path.endsWith('bulk-preview')?validateApprovalPreview(data):validateBulkApproval(data);
