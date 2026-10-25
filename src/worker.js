@@ -8,6 +8,7 @@ import {runImmediateTest,publicTestResult} from './instant-preview.js';
 import {runWeeklyGeneration} from './weekly-generation.js';
 import {validateApprovalPreview,validateBulkApproval} from './bulk-approval.js';
 import {notificationEmail,notificationSettings} from './approval-notifications.js';
+import {sessionCookies,staffSession} from './staff-session.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -23,7 +24,7 @@ const r=await fetch(env.SUPABASE_URL+'/rest/v1/'+path,{method,headers:{apikey:en
  return r.status===204?null:r.json();
 }
 async function member(req,env){
- const token=req.headers.get('Authorization');if(!token?.startsWith('Bearer '))return null;
+ const token=req.headers.get('Authorization')||('Bearer '+(sessionCookies(req).access||''));if(!token.startsWith('Bearer ')||!token.slice(7))return null;
  const r=await fetch(env.SUPABASE_URL+'/auth/v1/user',{headers:{apikey:env.SUPABASE_ANON_KEY,Authorization:token}});
  if(!r.ok)return null;const user=await r.json();
  const rows=await db(env,'members?user_id=eq.'+encodeURIComponent(user.id)+'&active=eq.true&select=user_id,role');
@@ -72,6 +73,7 @@ export default {async scheduled(event,env,ctx){
  if(path.startsWith('/api/generation/'))return generationAutomation(req,env,path,db,ctx);
  if(path.startsWith('/api/automation/'))return automation(req,env,path);
  if(req.method!=='GET'&&req.headers.get('Origin')!==url.origin)return json({error:'同じ管理画面から操作してください。'},403);
+ if(path.startsWith('/api/auth/'))return staffSession(req,env,path,db);
  try{
  const m=await member(req,env);if(!m)return json({error:'ログインまたはスタッフ登録が必要です。'},401);
  if(path==='/api/state'&&req.method==='GET'){
