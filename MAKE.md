@@ -42,4 +42,3 @@ ThreadsトークンはCloudflare/Supabaseで自動更新する構成へ移行済
 新しいテスト生成はCloudflareからOpenAIへ直接依頼し、1件の結果をプロンプト画面のボタン直下と履歴に表示します。Makeの15分間隔の実行は待ちません。MakeのAIシナリオは通常投稿の生成に引き続き使用します。過去の3案テスト履歴はそのまま保持します。
 ## 2026-10-25：通常生成もCloudflare内で実行
 AI_HISTORY_ENABLED=trueでは、既存POST /api/generation/claimが1組の通常生成を処理します。応答はjob:null, processed:true/falseとなり、既存「data.job.id Exists」フィルターで旧OpenAIモジュールと結果保存モジュールには進みません。Makeは15分ごとの起動役です。HTTPモジュール1のTimeoutを40→300秒に保存済み。既存の認証接続・スケジュールは維持。通常生成のモデル・履歴参照・類似判定・API使用量の集計はCloudflare側で統一管理します。
-

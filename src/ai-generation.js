@@ -7,7 +7,9 @@ export const jstDay=()=>new Date(Date.now()+9*3600000).toISOString().slice(0,10)
 export function projectedSpend(usage,date=jstDay()){const day=Number(date.slice(8,10)),days=new Date(Date.UTC(Number(date.slice(0,4)),Number(date.slice(5,7)),0)).getUTCDate();return Number(usage.productionUsd||0)/day*days;}
 export function cosine(a,b){if(!a||!b||a.length!==b.length)return 0;let dot=0,aa=0,bb=0;for(let i=0;i<a.length;i++){dot+=a[i]*b[i];aa+=a[i]**2;bb+=b[i]**2;}return aa&&bb?dot/Math.sqrt(aa*bb):0;}
 const normalized=s=>s.normalize('NFKC').replace(/[\p{P}\p{Z}\s]/gu,'').toLowerCase();
-export function textSimilarity(a,b){a=normalized(a);b=normalized(b);if(a===b)return 1;if(a.length<8||b.length<8)return 0;const grams=s=>new Set(Array.from({length:s.length-2},(_,i)=>s.slice(i,i+3))),aa=grams(a),bb=grams(b);return 2*[...aa].filter(g=>bb.has(g)).length/(aa.size+bb.size);}
+const features=s=>{const text=normalized(s);return {text,grams:new Set(Array.from({length:Math.max(0,text.length-2)},(_,i)=>text.slice(i,i+3)))};};
+function featureSimilarity(a,b){if(a.text===b.text)return 1;if(a.text.length<8||b.text.length<8)return 0;return 2*[...a.grams].filter(g=>b.grams.has(g)).length/(a.grams.size+b.grams.size);}
+export function textSimilarity(a,b){return featureSimilarity(features(a),features(b));}
 const age=(date,day)=>Math.round((Date.parse(date)-Date.parse(day))/86400000);
 async function hash(s){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)))].map(b=>b.toString(16).padStart(2,'0')).join('');}
 export async function historyContext(env,db,date=jstDay()){
@@ -34,9 +36,11 @@ export function buildHistoryInput(job,history,usage={}){
  const cap=test?30000:reduced?65000:150000;
  // UTF-8 byte count is a conservative input-token bound, not a token measurement.
  let selected=[...(test?selectTestHistory(history,job.prompt_snapshot):history)].sort((a,b)=>Math.abs(age(date,a.day))-Math.abs(age(date,b.day)));
- let prompt;
- while(true){prompt=generationPrompt(job.settings_snapshot,{...job.prompt_snapshot,memory_enabled:true})+historyPrompt(selected,date,reduced,test);if(bytes(prompt)+2048<=cap)break;if(!selected.length)throw new Error('AIへの指示が長すぎます。個別プロンプトを短くしてください。');selected.pop();}
- return {prompt,historyCount:history.length,includedCount:selected.length,reduced,inputBound:bytes(prompt)+2048};
+ const base=generationPrompt(job.settings_snapshot,{...job.prompt_snapshot,memory_enabled:true}),prefix=historyPrompt([],date,reduced,test),lines=[];
+ let bound=bytes(base+prefix)+2048;
+ if(bound>cap)throw new Error('AIへの指示が長すぎます。個別プロンプトを短くしてください。');
+ for(const row of selected){const line=historyPrompt([row],date,reduced,test).slice(prefix.length),size=bytes(line)+(lines.length?1:0);if(bound+size>cap)break;lines.push(line);bound+=size;}
+ return {prompt:base+prefix+lines.join('\n'),historyCount:history.length,includedCount:lines.length,reduced,inputBound:bound};
 }
 export function usageCost(model,usage){
  const r=prices[model];if(!r||!Number.isSafeInteger(usage?.input_tokens)||usage.input_tokens<0||!Number.isSafeInteger(usage?.output_tokens)||usage.output_tokens<0)return null;
@@ -82,11 +86,11 @@ async function prepareMemory(env,db,job,history){
  }
 }
 export function duplicateMatches(posts,vectors,history,date){
- const matches=[];
+ const matches=[],cache=new Map(),feature=s=>{if(!cache.has(s))cache.set(s,features(s));return cache.get(s);};
  for(let i=0;i<posts.length;i++){
   const candidates=[...history.map(p=>({body:p.body,vector:p.vector,id:p.id,day:p.day})),...posts.slice(0,i).map((p,k)=>({body:p.body,vector:vectors[k],id:'今回の投稿'+(k+1),day:date}))];
   for(const p of candidates){
-   const exact=normalized(posts[i].body)===normalized(p.body),literal=textSimilarity(posts[i].body,p.body),semantic=cosine(vectors[i],p.vector),days=age(date,p.day);
+   const a=feature(posts[i].body),b=feature(p.body),exact=a.text===b.text,literal=featureSimilarity(a,b),semantic=cosine(vectors[i],p.vector),days=age(date,p.day);
    if(exact||literal>=(days<=30?.78:.9)||semantic>=(days<=30?.94:.975)){matches.push({index:i,postId:p.id,score:Number(Math.max(literal,semantic).toFixed(3))});break;}
   }
  }
