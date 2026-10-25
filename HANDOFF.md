@@ -1,5 +1,8 @@
 # モデル切り替え用引き継ぎ
 
+## 2026-10-25：投稿一覧の整理（本番確認待ち）
+- public/post-list.js separates upcoming/draft/published/attention/all with counts, JST date + text filters, 10/20/50 pagination, 2-line excerpt and details containing full body/existing actions. Upcoming defaults, ascending schedule, includes future drafts clearly labelled; other groups descending. Top jump button. Existing latest300 state API and publication/approval untouched. No DB migration. Logout clears UI state. 68 Node tests pass, syntax/diff pass. Pending deploy and live UI verification; no real approval/publication for tests.
+
 ## 2026-10-25：一括承認（完了）
 - Admin-only bulk approval: count 1–100 or inclusive JST end date; shortcuts10/100/today+7days. Future-dated drafts sorted by scheduled_at/created_at/id. Per-post checkboxes/body disclosure. Preview excludes duplicate slots/daily7 capacity; final explicit approval activates automatic publication.
 - SQL013_bulk_approval.sql APPLIED ONCE. Exact post IDs + versions, atomic transaction, existing mutate_post audit/quota checks, row locks and request UUID replay safety. All service_role-only/RLS. No new keys or permissions.
