@@ -1,9 +1,10 @@
 # モデル切り替え用引き継ぎ
 
-## 2026-10-25：一括承認（本番反映準備）
+## 2026-10-25：一括承認（完了）
 - Admin-only bulk approval: count 1–100 or inclusive JST end date; shortcuts10/100/today+7days. Future-dated drafts sorted by scheduled_at/created_at/id. Per-post checkboxes/body disclosure. Preview excludes duplicate slots/daily7 capacity; final explicit approval activates automatic publication.
 - SQL013_bulk_approval.sql APPLIED ONCE. Exact post IDs + versions, atomic transaction, existing mutate_post audit/quota checks, row locks and request UUID replay safety. All service_role-only/RLS. No new keys or permissions.
 - 67 Node tests PASS. test/bulk-approval-invariants.sql live rolled-back transaction PASS: date/count/exclusions/version conflict rollback, successful2 approval, replay safety, daily7 atomic rollback, admin-only. All test reservations rolled back; real drafts not approved. Pending deployment and browser preview verification; do not click real bulk approve for verification.
+- COMPLETE: code bacaab8 deployed #26 SUCCESS https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40166893235 (67CI tests + dry run). User logged in; live count10→10selected, uncheck→9, clear→0 disabled, selectall10; count100→67candidates; 7daysahead→2026-11-01 inclusive→18candidates, excludesNov2+. Final UI count10/selected9 with first body expanded. Never clicked final approve. Read-only DB result total75/published3/active_reservations0/bulk_requests0. SQL test changes all rolled back. Proof C:/Users/ayato/Documents/Codex/Threads-Automation-bulk-approval.png. App24 deliverable; no new credentials or approval required.
 
 更新: 2026-10-24 JST。GPT-6 astra → GPT-6.1 sol。同じチャットで続行する前提。秘密キー・パスワードはこの文書に含まない。
 

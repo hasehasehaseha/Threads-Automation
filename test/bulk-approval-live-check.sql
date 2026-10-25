@@ -1,0 +1,1 @@
+select count(*) as total_posts, count(*) filter(where status='published') as published, count(*) filter(where status in ('scheduled','publishing')) as active_reservations, (select count(*) from bulk_approval_requests) as bulk_requests from posts;
