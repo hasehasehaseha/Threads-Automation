@@ -114,7 +114,7 @@ export async function generateWithHistory(env,db,job){
  let posts=await generate(env,db,job,model,input.prompt,count,'generate');
  let vectors,matches,retried=false;
  try{vectors=await embeddings(env,db,job,posts.map(p=>p.body));matches=duplicateMatches(posts,vectors,history,date);}
- catch{await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+job.claim_id,'PATCH',{status:'needs_review',preview_posts:posts,test_error:'文章は生成しましたが、過去との類似度を確認できませんでした。内容を確認してください。'});return {...job,status:'needs_review',preview_posts:posts,test_error:'過去との類似度を確認できませんでした。'};}
+ catch{await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+job.claim_id,'PATCH',{status:'needs_review',preview_posts:posts,test_error:'文章は生成しましたが、過去との類似度を確認できませんでした。内容を確認してください。'}).catch(()=>{});return {...job,status:'needs_review',preview_posts:posts,test_error:'過去との類似度を確認できませんでした。'};}
  if(matches.length&&job.kind!=='test'&&Number((await db(env,'rpc/ai_month_usage','POST',{})).productionUsd)<18){
   try{
   const indexes=[...new Set(matches.map(m=>m.index))];
@@ -126,9 +126,9 @@ export async function generateWithHistory(env,db,job){
   }catch{ /* Keep the first paid result for review if retry or its budget reservation fails. */ }
  }
  const report={model,historyCount:history.length,includedCount:input.includedCount,reduced:input.reduced,retried,similar:matches,checkedAt:new Date().toISOString()};
- await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+job.claim_id,'PATCH',{ai_report:report});
+ await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+job.claim_id,'PATCH',{ai_report:report}).catch(()=>{});
  if(matches.length&&job.kind!=='test'){
-  await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+job.claim_id,'PATCH',{status:'needs_review',preview_posts:posts,test_error:'過去の投稿と似ているため、自動で下書きに保存せず確認待ちにしました。'});
+  await db(env,'generation_jobs?id=eq.'+job.id+'&claim_id=eq.'+job.claim_id,'PATCH',{status:'needs_review',preview_posts:posts,test_error:'過去の投稿と似ているため、自動で下書きに保存せず確認待ちにしました。'}).catch(()=>{});
   return {...job,status:'needs_review',preview_posts:posts,ai_report:report,test_error:'過去の投稿との類似を確認してください。'};
  }
  try{

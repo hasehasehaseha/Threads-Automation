@@ -5,7 +5,7 @@ const job={id:'11111111-1111-4111-8111-111111111111',claim_id:'claim',kind:'prod
 const env={OPENAI_API_KEY:'private-fixture',AI_HISTORY_ENABLED:'true',MAKE_AI_TOKEN:'a'.repeat(40)};
 const vec=i=>Array.from({length:256},(_,k)=>k===i?1:0);
 const draft=[{topic:'共感',body:'初めての場所で緊張する気持ちに、まず耳を傾けてみませんか。',memo:{point:'緊張への共感'}},{topic:'学び',body:'習い事を選ぶときは、通い続けられる距離も確認しましょう。'}];
-function harness(t,{history=[],responses=[draft],failUsage=false,denyRetry=false}={}){
+function harness(t,{history=[],responses=[draft],failUsage=false,denyRetry=false,failReport=false}={}){
  let generated=0,completed=0;const requests=[],writes=[],reservations=[];
  const db=async(e,p,m,b)=>{
   if(p==='ai_config?id=eq.1')return [{model:'gpt-6.1-sol'}];
@@ -14,7 +14,7 @@ function harness(t,{history=[],responses=[draft],failUsage=false,denyRetry=false
   if(p.startsWith('post_memory?'))return m==='POST'?[b]:[];
   if(p==='rpc/reserve_ai_call'){reservations.push(b);if(denyRetry&&b.p_purpose==='retry')throw new Error('budget');return true;}
   if(p.startsWith('ai_usage?')){if(failUsage)throw new Error('db down');writes.push(b);return [];}
-  if(p.startsWith('generation_jobs?')){writes.push(b);return [];}
+  if(p.startsWith('generation_jobs?')){if(failReport&&b.ai_report)throw new Error('report storage down');writes.push(b);return [];}
   if(p==='rpc/complete_generation_job'){completed++;return {...job,status:'completed',post_ids:['id1','id2'],preview_posts:b.p_posts};}
   if(p==='rpc/claim_history_generation_job')return [job];
   throw new Error(p);
@@ -65,6 +65,9 @@ test('budget refusal during retry preserves the first paid result for review',as
 });
 test('usage write failure is not retried; unknown reservation remains conservative',async t=>{
  const h=harness(t,{failUsage:true});const r=await generateWithHistory(env,h.db,job);assert.equal(h.generated,1);assert.equal(r.status,'completed');
+});
+test('diagnostic report write failure does not erase a paid result or repeat generation',async t=>{
+ const h=harness(t,{failReport:true});const r=await generateWithHistory(env,h.db,job);assert.equal(h.generated,1);assert.equal(h.completed,1);assert.equal(r.preview_posts.length,2);
 });
 test('Make orchestration returns job:null so legacy OpenAI and result modules cannot execute',async t=>{
  const h=harness(t);const r=await generationAutomation(new Request('https://local/api/generation/claim',{method:'POST',headers:{Authorization:'Bearer '+env.MAKE_AI_TOKEN}}),env,'/api/generation/claim',h.db);
