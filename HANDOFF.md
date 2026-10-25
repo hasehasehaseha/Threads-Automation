@@ -1,5 +1,8 @@
 # モデル切り替え用引き継ぎ
 
+## 2026-10-25：保存済み生成履歴の折りたたみ（反映準備）
+- UI-only public/generation-settings.js: completed daily generation and all7days-completed weekly batch cards grouped in one native details#completed-generation-history, initiallyclosed; summary recordcount. Pending/needs_review cards remain outside visible. Openstate survives live datareload, resets closed onlogout/fullpage reload. History contents unchanged; no generation/approval/publication actions changed. CSS compact enclosure. Syntax/diffchecks pass. Pending production deploy + logged-in reload/collapse/expand verification; no new DB/secrets.
+
 ## 2026-10-25：ログイン維持（完了）
 - User explicitly requests persistent staff login on reload. New src/staff-session.js handles same-origin POST auth/login,session,logout. Supabase password/refresh REST stays server-side; active members checked before storing/restoring. Credentials never JSON/localStorage. __Secure-danbara-access (Path/api) + refresh(Path/api/auth), HttpOnly Secure SameSiteStrict MaxAge30days; JWT independently verified eachAPI, expiredJWTrefresh onreload/401. Local scope logout revokes currentSupabasesession and clearscookies, otherdevicesunaffected. No DB/secrets/configchanges.
 - worker.member accepts existingBearer orCookie (Makepaths remainseparateauth). Origin guard before auth routes. Login/logout endpoint password input only transient serverforwardtoexistingSupabase, no logging/storage. On429/5xx authoutage retaincookies. Invalidrefresh/membershipclears. Frontend no token var, restorebeforeinitialreload, coalescedrefresh,401retryonlyafterpre-actionauthfailure, epochguards prevent in-flight data restoringafterlogout, logout waits ownrefresh beforeclearservercookies. If networklogoutfails UIretrybutton remains.

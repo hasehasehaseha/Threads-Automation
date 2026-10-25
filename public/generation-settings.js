@@ -1,6 +1,7 @@
 export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
  const $=s=>document.querySelector(s),labels={queued:'生成待ち（開始まで最大15分程度）',generating:'生成中',completed:'下書き保存済み',needs_review:'要確認（時刻超過や処理結果を確認してください）'};
  let dirty=false,version=null,rows=[],busy=false,pollTimer=null;
+ const historyDetails=document.createElement('details'),historySummary=document.createElement('summary'),historyContent=document.createElement('div'),historyNote=document.createElement('p');historyDetails.id='completed-generation-history';historyNote.className='post-meta';historyNote.textContent='生成結果の記録です。投稿本文は下の「投稿一覧」で確認できます。';historyDetails.append(historySummary,historyNote,historyContent);
  const weeklyButton=document.createElement('button');weeklyButton.id='generate-week';weeklyButton.type='button';weeklyButton.disabled=true;
  $('#generate-date-form').append(weeklyButton);
  const weeklyNote=document.createElement('p');weeklyNote.className='post-meta';weeklyNote.textContent='週間生成は、上の指定日から7日間、選んだ件数・時刻・プロンプトを毎日繰り返します。1日分ずつ順番に生成し、先に作った下書きも履歴として参照します。画面を閉じても処理は続きます。開始まで約1分、その後は数分〜数十分かかります。既存の依頼がある日は、その設定・生成結果を使います。';
@@ -78,14 +79,14 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   if(!dirty){version=state.promptPlan?.version??null;rows=(state.promptPlan?.slots||[]).map((id,i)=>({prompt_id:id,time:state.promptPlan?.times?.[i]||defaults[3][i]}));$('#generation-count').value=String(rows.length||3);}
   const date=$('#generation-date');date.min=day();if(!date.value)date.value=day(1);
   drawRows();renderButtons();const target=$('#generation-status');target.replaceChildren();
-  weeklyStatus.replaceChildren();
+  weeklyStatus.replaceChildren();historyContent.replaceChildren();
   for(const batch of state.generationBatches||[]){
    const jobs=batch.jobs||[],done=jobs.filter(j=>j.status==='completed'),review=jobs.filter(j=>j.status==='needs_review'),pending=jobs.filter(j=>['queued','generating'].includes(j.status));
    const end=jobs.at(-1)?.target_date||'',count=batch.prompt_snapshot.count,total=done.reduce((n,j)=>n+j.count,0);
    const card=item('週間生成 '+batch.start_date+'〜'+end,done.length+'/7日完了・保存済み'+total+'件'+(pending.length?' ／ 処理待ち・生成中 '+pending.length+'日':' ／ 処理終了')+(review.length?' ／ 要確認 '+review.length+'日':''));
    const plan=document.createElement('p');plan.className='post-meta';plan.textContent='依頼時：1日'+count+'件×7日＝'+(count*7)+'件 ／ 新規'+batch.new_job_ids.length+'日・既存'+(7-batch.new_job_ids.length)+'日（既存日はその設定を使用）';card.append(plan);
    for(const j of jobs){const p=document.createElement('p');p.className='post-meta';p.textContent=j.target_date+'：'+(j.status==='queued'?'順番待ち（毎分確認）':labels[j.status]||j.status)+'（'+j.count+'件）'+(j.new?'':'・既存の依頼')+(j.error?' ／ '+j.error:'');card.append(p);}
-   weeklyStatus.append(card);
+   if(jobs.length===7&&done.length===7)historyContent.append(card);else weeklyStatus.append(card);
   }
   for(const j of (state.generationJobs||[]).filter(j=>j.kind!=='test')){
    const snapshot=j.prompt_snapshot,count=snapshot?.count||3;
@@ -93,9 +94,10 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
    if(j.ai_report){const p=document.createElement('p');p.className='post-meta';p.textContent=j.ai_report.model+' ／ 履歴'+j.ai_report.historyCount+'件を確認・指示に'+j.ai_report.includedCount+'件を参照'+(j.ai_report.retried?' ／ 類似のため1回再生成':'');card.append(p);}
    if(j.test_error){const p=document.createElement('p');p.textContent=j.test_error;card.append(p);}
    if(j.status==='needs_review'&&j.preview_posts)for(const post of j.preview_posts){const p=document.createElement('p');p.className='post-body';p.textContent=post.body;card.append(p);}
-   if(snapshot?.templates){const p=document.createElement('p');p.className='post-meta';p.textContent=snapshot.templates.map((t,i)=>(snapshot.times?.[i]||defaults[3][i])+' '+t.name).join(' ／ ');card.append(p);}target.append(card);
+   if(snapshot?.templates){const p=document.createElement('p');p.className='post-meta';p.textContent=snapshot.templates.map((t,i)=>(snapshot.times?.[i]||defaults[3][i])+' '+t.name).join(' ／ ');card.append(p);}if(j.status==='completed')historyContent.append(card);else target.append(card);
   }
+  if(historyContent.childElementCount){historySummary.textContent='下書き保存済みの生成履歴（'+historyContent.childElementCount+'件の記録）';target.append(historyDetails);}
   if(!pollTimer&&((state.generationJobs||[]).some(j=>j.kind!=='test'&&['queued','generating'].includes(j.status))||(state.generationBatches||[]).some(b=>b.jobs?.some(j=>['queued','generating'].includes(j.status))))){pollTimer=setTimeout(async()=>{pollTimer=null;try{if(getState())await reload();}catch{}},15000);}
  }
- return {render,previewRequest:()=>({target_date:$('#generation-date').value,slots:slots()}),reset(){dirty=false;version=null;rows=[];busy=false;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;$('#generation-slots').replaceChildren();weeklyStatus.replaceChildren();}};
+ return {render,previewRequest:()=>({target_date:$('#generation-date').value,slots:slots()}),reset(){dirty=false;version=null;rows=[];busy=false;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;$('#generation-slots').replaceChildren();weeklyStatus.replaceChildren();historyDetails.open=false;historyContent.replaceChildren();$('#generation-status').replaceChildren();}};
 }
