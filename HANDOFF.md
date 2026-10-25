@@ -1,5 +1,10 @@
 # モデル切り替え用引き継ぎ
 
+## 2026-10-25：一括承認（本番反映準備）
+- Admin-only bulk approval: count 1–100 or inclusive JST end date; shortcuts10/100/today+7days. Future-dated drafts sorted by scheduled_at/created_at/id. Per-post checkboxes/body disclosure. Preview excludes duplicate slots/daily7 capacity; final explicit approval activates automatic publication.
+- SQL013_bulk_approval.sql APPLIED ONCE. Exact post IDs + versions, atomic transaction, existing mutate_post audit/quota checks, row locks and request UUID replay safety. All service_role-only/RLS. No new keys or permissions.
+- 67 Node tests PASS. test/bulk-approval-invariants.sql live rolled-back transaction PASS: date/count/exclusions/version conflict rollback, successful2 approval, replay safety, daily7 atomic rollback, admin-only. All test reservations rolled back; real drafts not approved. Pending deployment and browser preview verification; do not click real bulk approve for verification.
+
 更新: 2026-10-24 JST。GPT-6 astra → GPT-6.1 sol。同じチャットで続行する前提。秘密キー・パスワードはこの文書に含まない。
 
 ## 2026-10-24 プロンプト管理・テスト生成（最新）

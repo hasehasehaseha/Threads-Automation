@@ -6,6 +6,7 @@ import {threadsEnvironment,tokenStatus,initializeToken,refreshThreadsToken} from
 import {validateTemplate,validateTest} from './prompts.js';
 import {runImmediateTest,publicTestResult} from './instant-preview.js';
 import {runWeeklyGeneration} from './weekly-generation.js';
+import {validateApprovalPreview,validateBulkApproval} from './bulk-approval.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -74,6 +75,12 @@ export default {async scheduled(event,env,ctx){
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/posts/bulk-preview'||path==='/api/posts/bulk-approve'){
+  if(m.role!=='admin')return json({error:'一括承認は管理者のみ可能です'},403);
+  const args=path.endsWith('bulk-preview')?validateApprovalPreview(data):validateBulkApproval(data);
+  try{return json(await db(env,'rpc/'+(path.endsWith('bulk-preview')?'preview_bulk_approval':'approve_bulk_posts'),'POST',{p_actor:m.user_id,...args}));}
+  catch{return json({error:'処理結果を確認できませんでした。対象の変更や予約上限の可能性があります。再操作の前に最新情報と予約状況を確認してください。'},409);}
+ }
  if(path==='/api/generate-week'){
   if(env.AI_HISTORY_ENABLED!=='true'||!env.OPENAI_API_KEY)return json({error:'週間生成は接続準備中です'},503);
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.request_id))return json({error:'依頼IDが不正です'},400);

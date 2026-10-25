@@ -1,6 +1,7 @@
 import {setupGenerationStudio} from './generation-settings.js';
 import {setupPromptStudio} from './prompts.js';
 import {setupAiSettings} from './ai-settings.js';
+import {setupBulkApproval} from './bulk-approval.js';
 const $=s=>document.querySelector(s);let config,token=null,state=null,editing=null;
 const msg=t=>$('#status').textContent=t;
 const labels={draft:'下書き',scheduled:'承認済み・予約待ち',publishing:'公開処理中',published:'公開済み',failed:'失敗',needs_review:'要確認'};
@@ -38,5 +39,8 @@ const reloadBeforePrompts=reload;reload=async()=>{await reloadBeforePrompts();pr
 const aiStudio=setupAiSettings({api,safe,msg,getState:()=>state,reload:()=>reload()});
 $('#logout').addEventListener('click',()=>aiStudio.reset());
 const reloadBeforeAi=reload;reload=async()=>{await reloadBeforeAi();aiStudio.render();};
+const bulkApproval=setupBulkApproval({api,safe,msg,getState:()=>state,reload:()=>reload(),when,show});
+$('#logout').addEventListener('click',()=>bulkApproval.reset());
+const reloadBeforeBulk=reload;reload=async()=>{await reloadBeforeBulk();bulkApproval.render();};
 try{const r=await fetch('/api/config');if(!r.ok)throw new Error();config=await r.json();$('#connection').textContent=config.ready?'共有データ保存に接続済みです。ログイン後に各機能の状態を確認できます。':'Supabase未接続です。接続設定後にスタッフログインを開始できます。';$('#login-form').querySelector('button').disabled=!config.ready;}catch{$('#connection').textContent='サーバーに接続できません。Cloudflareへの配信状態を確認してください。';$('#login-form').querySelector('button').disabled=true;}
 

@@ -55,3 +55,4 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
  .prompt-tabs{gap:6px}
  .prompt-tabs button{font-size:12px;padding:7px 9px}
 }
+.bulk-candidate{padding:12px 0;border-top:1px solid #e2e9e9}.bulk-candidate label{margin-bottom:6px}.bulk-candidate .post-body{margin:8px 0}.bulk-candidate details{font-size:13px}#bulk-results>.primary{margin-top:18px}
