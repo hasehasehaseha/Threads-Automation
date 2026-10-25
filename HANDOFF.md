@@ -1,7 +1,8 @@
 # モデル切り替え用引き継ぎ
 
-## 2026-10-25：保存済み生成履歴の折りたたみ（反映準備）
+## 2026-10-25：保存済み生成履歴の折りたたみ（完了）
 - UI-only public/generation-settings.js: completed daily generation and all7days-completed weekly batch cards grouped in one native details#completed-generation-history, initiallyclosed; summary recordcount. Pending/needs_review cards remain outside visible. Openstate survives live datareload, resets closed onlogout/fullpage reload. History contents unchanged; no generation/approval/publication actions changed. CSS compact enclosure. Syntax/diffchecks pass. Pending production deploy + logged-in reload/collapse/expand verification; no new DB/secrets.
+- COMPLETE codea31a1b5 deploy33 SUCCESS https://github.com/hasehasehaseha/Threads-Automation/actions/runs/40176584254 (78CItests + dryrun). Browser session reset/re-inventory: app nowtab6, IABbrowser2. Actualreload auto-restoredadmin, completedhistoryclosed13records (12daily+1weekly), expand→visiblefirstcard, latestdatarefresh→openpreserved13, close→shortsummary and next下書きform visible. No generation/approval/post mutations. User had independentlytrashed1post beforethisturn (active74/trash1); notagentchange. Proof C:/Users/ayato/Documents/Codex/Threads-Automation-generation-history-collapsed.png. App6deliverable, deploy7temporaryclosed. No requiredwork remains.
 
 ## 2026-10-25：ログイン維持（完了）
 - User explicitly requests persistent staff login on reload. New src/staff-session.js handles same-origin POST auth/login,session,logout. Supabase password/refresh REST stays server-side; active members checked before storing/restoring. Credentials never JSON/localStorage. __Secure-danbara-access (Path/api) + refresh(Path/api/auth), HttpOnly Secure SameSiteStrict MaxAge30days; JWT independently verified eachAPI, expiredJWTrefresh onreload/401. Local scope logout revokes currentSupabasesession and clearscookies, otherdevicesunaffected. No DB/secrets/configchanges.
