@@ -9,6 +9,7 @@ import {runWeeklyGeneration} from './weekly-generation.js';
 import {validateApprovalPreview,validateBulkApproval} from './bulk-approval.js';
 import {notificationEmail,notificationSettings} from './approval-notifications.js';
 import {sessionCookies,staffSession} from './staff-session.js';
+import {validateBulkTrash} from './bulk-trash.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 export function validatePost(data){
  if(typeof data.body!=='string'||!data.body.trim()||[...data.body].length>500)throw new Error('投稿文は1〜500文字で入力してください');
@@ -87,6 +88,12 @@ export default {async scheduled(event,env,ctx){
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
+ if(path==='/api/posts/bulk-trash'){
+  if(m.role!=='admin')return json({error:'一括移動は管理者のみ可能です'},403);
+  const args=validateBulkTrash(data);
+  try{return json(await db(env,'rpc/trash_drafts_bulk','POST',{p_actor:m.user_id,...args}));}
+  catch{return json({error:'移動結果を確認できませんでした。対象の変更がある可能性もあります。最新情報とごみ箱を確認してから再操作してください。'},409);}
+ }
  if(path==='/api/notifications/settings'||path==='/api/notifications/test'){
   if(m.role!=='admin')return json({error:'通知設定は管理者のみ可能です'},403);
   if(path.endsWith('settings'))return json(await db(env,'rpc/save_approval_notifications','POST',{p_actor:m.user_id,...notificationSettings(data)}));

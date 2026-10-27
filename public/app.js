@@ -57,7 +57,7 @@ const reloadBeforeAi=reload;reload=async()=>{await reloadBeforeAi();aiStudio.ren
 const bulkApproval=setupBulkApproval({api,safe,msg,getState:()=>state,reload:()=>reload(),when,show});
 $('#logout').addEventListener('click',()=>bulkApproval.reset());
 const reloadBeforeBulk=reload;reload=async()=>{await reloadBeforeBulk();bulkApproval.render();};
-const postList=setupPostList({renderCard:renderPostCard,getState:()=>state,show});
+const postList=setupPostList({renderCard:renderPostCard,getState:()=>state,show,api,safe,msg,reload:()=>reload(),when});
 $('#logout').addEventListener('click',()=>postList.reset());
 const notificationStudio=setupApprovalNotifications({api,safe,msg,getState:()=>state,reload:()=>reload(),when});
 $('#logout').addEventListener('click',()=>notificationStudio.reset());
