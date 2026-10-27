@@ -27,8 +27,12 @@ test('configured API preserves slot order, today validation, and admin-only defa
   calls.push({url,body:JSON.parse(opts.body)});return Response.json({id:'job'});
  });
  const send=(path,data)=>worker.fetch(new Request('https://example.com/api/'+path,{method:'POST',headers:{Origin:'https://example.com',Authorization:'Bearer staff'},body:JSON.stringify(data)}),env);
- assert.equal((await send('generate',{target_date:'2099-10-30',slots:slots.slice(0,5)})).status,200);
- assert.ok(calls[0].url.endsWith('/request_configured_generation'));assert.deepEqual(calls[0].body.p_times,slots.slice(0,5).map(s=>s.time));
+ assert.equal((await send('generate',{request_id:id,target_date:'2099-10-30',slots:slots.slice(0,5)})).status,200);
+ assert.ok(calls[0].url.endsWith('/request_repeatable_generation'));assert.equal(calls[0].body.p_request,id);assert.deepEqual(calls[0].body.p_times,slots.slice(0,5).map(s=>s.time));
+ const next='22222222-2222-4222-8222-222222222222';
+ assert.equal((await send('generate',{request_id:next,target_date:'2099-10-30',slots:slots.slice(0,1)})).status,200);
+ assert.equal(calls[1].body.p_request,next);assert.equal(calls[1].body.p_target,calls[0].body.p_target);
  assert.equal((await send('generation-plan',{slots})).status,403);
- assert.equal((await send('generate',{target_date:'2099-10-30',slots:[slots[0],slots[0]]})).status,400);assert.equal(calls.length,1);
+ assert.equal((await send('generate',{request_id:id,target_date:'2099-10-30',slots:[slots[0],slots[0]]})).status,400);
+ assert.equal((await send('generate',{target_date:'2099-10-30',slots:slots.slice(0,1)})).status,400);assert.equal(calls.length,2);
 });

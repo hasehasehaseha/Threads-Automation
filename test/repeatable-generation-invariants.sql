@@ -1,0 +1,31 @@
+begin;
+do $$
+declare actor uuid; slots uuid[]; request uuid:=gen_random_uuid(); j generation_jobs; again generation_jobs; fresh generation_jobs;
+ b generation_batches; b2 generation_batches; n bigint; post_count bigint; d date:='2045-05-01'; failed boolean;
+begin
+ select user_id into actor from members where active and role='admin' limit 1;
+ select array_agg(id order by id) into slots from prompt_templates where active;
+ slots:=slots[1:2];
+ select count(*) into n from generation_jobs;select count(*) into post_count from posts;
+ j:=request_repeatable_generation(actor,request,d,slots,array['11:00','22:00']);
+ update generation_jobs set status='needs_review',test_error='fixture failure' where id=j.id;
+ again:=request_repeatable_generation(actor,request,d,slots,array['11:00','22:00']);
+ if again.id<>j.id or again.status<>'needs_review' or (select count(*) from generation_jobs)<>n+1 then raise exception 'transport replay duplicated';end if;
+ fresh:=request_repeatable_generation(actor,gen_random_uuid(),d,slots[1:1],array['12:00']);
+ if fresh.id=j.id or fresh.status<>'queued' or (fresh.prompt_snapshot->>'count')::int<>1 then raise exception 'same day retry blocked';end if;
+ failed:=false;
+ begin perform request_repeatable_generation(actor,request,d,slots,array['10:00','20:00']);exception when others then failed:=true;end;
+ if not failed then raise exception 'changed replay accepted';end if;
+ b:=request_weekly_generation(actor,gen_random_uuid(),d,slots,array['11:00','22:00']);
+ b2:=request_weekly_generation(actor,b.id,d,slots,array['11:00','22:00']);
+ if b2.job_ids<>b.job_ids or cardinality(b.new_job_ids)<>7 then raise exception 'weekly replay failed';end if;
+ b2:=request_weekly_generation(actor,gen_random_uuid(),d,slots[1:1],array['12:00']);
+ if b2.job_ids&&b.job_ids or cardinality(b2.new_job_ids)<>7 then raise exception 'repeat week reused old jobs';end if;
+ if (select count(*) from generation_jobs)<>n+16 or (select count(*) from posts)<>post_count then raise exception 'unexpected writes';end if;
+ if (select status from generation_jobs where id=j.id)<>'needs_review' then raise exception 'old history changed';end if;
+ failed:=false;begin perform request_repeatable_generation(gen_random_uuid(),gen_random_uuid(),d,slots,array['11:00','22:00']);exception when others then failed:=true;end;
+ if not failed then raise exception 'nonmember allowed';end if;
+ if has_function_privilege('authenticated','public.request_repeatable_generation(uuid,uuid,date,uuid[],text[])','EXECUTE') then raise exception 'public access';end if;
+end $$;
+rollback;
+select 'PASS: repeat day/week create fresh jobs, request replay idempotent, changed payload rejected, prior jobs/posts preserved, member/ACL guarded; all writes rolled back' as result;

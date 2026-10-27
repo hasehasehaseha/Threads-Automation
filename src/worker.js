@@ -192,9 +192,10 @@ export default {async scheduled(event,env,ctx){
  if(path==='/api/generate'){
  if(!env.MAKE_AI_TOKEN&&!(env.AI_HISTORY_ENABLED==='true'&&env.OPENAI_API_KEY))return json({error:'AI生成は接続準備中です'},503);
  if(data.slots!==undefined){
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.request_id))return json({error:'依頼IDが不正です。画面を更新してください。'},400);
  const target=validateGenerationDate(data.target_date??new Date(Date.now()+9*3600000+86400000).toISOString().slice(0,10));
  const slots=validateGenerationSlots(data.slots,target);
- return json(await db(env,'rpc/request_configured_generation','POST',{p_actor:m.user_id,p_target:target,p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)}));
+ return json(await db(env,'rpc/request_repeatable_generation','POST',{p_actor:m.user_id,p_request:data.request_id,p_target:target,p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)}));
  }
  return json(data.target_date===undefined?await db(env,'rpc/request_generation_job','POST',{p_actor:m.user_id}):await db(env,'rpc/request_generation_for_date','POST',{p_actor:m.user_id,p_target:validateGenerationDate(data.target_date)}));
  }

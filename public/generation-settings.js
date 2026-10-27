@@ -1,10 +1,11 @@
 export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
  const $=s=>document.querySelector(s),labels={queued:'開始待ち（他の生成がある場合は順番待ち）',generating:'生成中',completed:'下書き保存済み',needs_review:'要確認（時刻超過や処理結果を確認してください）'};
- let dirty=false,version=null,rows=[],busy=false,pollTimer=null;
+ let dirty=false,version=null,rows=[],busy=false,pollTimer=null; const pendingRequests=new Map();
+ function requestId(key){if(!pendingRequests.has(key))pendingRequests.set(key,crypto.randomUUID());return pendingRequests.get(key);}
  const historyDetails=document.createElement('details'),historySummary=document.createElement('summary'),historyContent=document.createElement('div'),historyNote=document.createElement('p');historyDetails.id='completed-generation-history';historyNote.className='post-meta';historyNote.textContent='生成結果の記録です。投稿本文は下の「投稿一覧」で確認できます。';historyDetails.append(historySummary,historyNote,historyContent);
  const weeklyButton=document.createElement('button');weeklyButton.id='generate-week';weeklyButton.type='button';weeklyButton.disabled=true;
  $('#generate-date-form').append(weeklyButton);
- const weeklyNote=document.createElement('p');weeklyNote.className='post-meta';weeklyNote.textContent='週間生成は、上の指定日から7日間、選んだ件数・時刻・プロンプトを毎日繰り返します。ボタン操作から生成を開始し、1日分ずつ順番に処理します。先に作った下書きも履歴として参照します。続きは毎分確認するため、全日分の完了には数分〜数十分かかります。既存の依頼がある日は、その設定・生成結果を使います。';
+ const weeklyNote=document.createElement('p');weeklyNote.className='post-meta';weeklyNote.textContent='週間生成は、上の指定日から7日間、選んだ件数・時刻・プロンプトを毎日繰り返します。ボタン操作から生成を開始し、1日分ずつ順番に処理します。先に作った下書きも履歴として参照します。続きは毎分確認するため、全日分の完了には数分〜数十分かかります。同じ期間でも毎回新しく生成し、既存の下書きは残します。';
  $('#generate-date-form').after(weeklyNote);
  const weeklyStatus=document.createElement('div');weeklyStatus.id='weekly-generation-status';weeklyStatus.setAttribute('aria-live','polite');$('#generation-status').before(weeklyStatus);
  const day=(offset=0)=>new Date(Date.now()+9*3600000+offset*86400000).toISOString().slice(0,10);
@@ -48,9 +49,9 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   $('#save-generation-plan').disabled=busy||state?.member.role!=='admin';
  }
  async function generate(date){
-  const selected=slots(date);busy=true;renderButtons();drawRows();
+  const selected=slots(date),key=JSON.stringify(['day',date,selected]);busy=true;renderButtons();drawRows();
   try{
-   let j=await api('generate',{target_date:date,slots:selected});await reload();
+   let j=await api('generate',{request_id:requestId(key),target_date:date,slots:selected});pendingRequests.delete(key);await reload();
    if(!getState())return;
    if(j.status==='queued'&&getState().generationImmediateEnabled){
     msg('生成を開始しています。GPTの応答と履歴チェックをお待ちください。他の生成がある場合は順番に処理します。');
@@ -59,18 +60,17 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
     j=getState().generationJobs.find(job=>job.id===j.id)||j;
    }
    const count=j.prompt_snapshot?.count||3;
-   const differs=JSON.stringify(j.prompt_snapshot?.times)!==JSON.stringify(selected.map(s=>s.time))||JSON.stringify(j.prompt_snapshot?.templates?.map(t=>t.id))!==JSON.stringify(selected.map(s=>s.prompt_id))||count!==selected.length;
-   msg(date+' 分：'+labels[j.status]+'（'+count+'件）。'+(differs?'既存の依頼があるため、その設定を使います。':'')+'公開には承認が必要です。');
+   msg(date+' 分：'+labels[j.status]+'（'+count+'件）。今回の設定で新しく依頼しました。公開には承認が必要です。');
   }finally{busy=false;renderButtons();drawRows();}
  }
  $('#generate-drafts').onclick=safe(()=>generate(day(1)));
  $('#generate-today').onclick=safe(()=>generate(day()));
  $('#generate-date-form').onsubmit=safe(()=>generate($('#generation-date').value));
  weeklyButton.onclick=safe(async()=>{
-  const date=$('#generation-date').value,selected=slots(date);if(!date)throw new Error('週間生成の開始日を指定してください。');
+  const date=$('#generation-date').value,selected=slots(date),key=JSON.stringify(['week',date,selected]);if(!date)throw new Error('週間生成の開始日を指定してください。');
   busy=true;renderButtons();
   try{
-   const batch=await api('generate-week',{request_id:crypto.randomUUID(),start_date:date,slots:selected});
+   const batch=await api('generate-week',{request_id:requestId(key),start_date:date,slots:selected});pendingRequests.delete(key);
    if(!getState())return;
    await reload();const fresh=batch.new_job_ids.length;
    if(getState()?.generationImmediateEnabled){
@@ -78,7 +78,7 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
     try{await api('generate-start',{});}catch{await reload();throw new Error('週間の依頼は保存されています。生成の状態を一覧で確認してください。');}
     await reload();if(!getState())return;
    }
-   msg(date+'から7日間の生成を受け付けました。新規'+fresh+'日・既存'+(7-fresh)+'日。1日ずつ処理します。公開には承認が必要です。');
+   msg(date+'から7日間の生成を受け付けました。新規'+fresh+'日。1日ずつ処理します。公開には承認が必要です。');
   }finally{busy=false;renderButtons();drawRows();}
  });
  $('#save-generation-plan').onclick=safe(async()=>{
@@ -96,8 +96,8 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
    const jobs=batch.jobs||[],done=jobs.filter(j=>j.status==='completed'),review=jobs.filter(j=>j.status==='needs_review'),pending=jobs.filter(j=>['queued','generating'].includes(j.status));
    const end=jobs.at(-1)?.target_date||'',count=batch.prompt_snapshot.count,total=done.reduce((n,j)=>n+j.count,0);
    const card=item('週間生成 '+batch.start_date+'〜'+end,done.length+'/7日完了・保存済み'+total+'件'+(pending.length?' ／ 処理待ち・生成中 '+pending.length+'日':' ／ 処理終了')+(review.length?' ／ 要確認 '+review.length+'日':''));
-   const plan=document.createElement('p');plan.className='post-meta';plan.textContent='依頼時：1日'+count+'件×7日＝'+(count*7)+'件 ／ 新規'+batch.new_job_ids.length+'日・既存'+(7-batch.new_job_ids.length)+'日（既存日はその設定を使用）';card.append(plan);
-   for(const j of jobs){const p=document.createElement('p');p.className='post-meta';p.textContent=j.target_date+'：'+(j.status==='queued'?'順番待ち（毎分確認）':labels[j.status]||j.status)+'（'+j.count+'件）'+(j.new?'':'・既存の依頼')+(j.error?' ／ '+j.error:'');card.append(p);}
+   const plan=document.createElement('p');plan.className='post-meta';plan.textContent='依頼時：1日'+count+'件×7日＝'+(count*7)+'件 ／ 新規'+batch.new_job_ids.length+'日（今回の新しい生成依頼）';card.append(plan);
+   for(const j of jobs){const p=document.createElement('p');p.className='post-meta';p.textContent=j.target_date+'：'+(j.status==='queued'?'順番待ち（毎分確認）':labels[j.status]||j.status)+'（'+j.count+'件）'+(j.new?'':'・以前の依頼')+(j.error?' ／ '+j.error:'');card.append(p);}
    if(jobs.length===7&&done.length===7)historyContent.append(card);else weeklyStatus.append(card);
   }
   for(const j of (state.generationJobs||[]).filter(j=>j.kind!=='test')){
@@ -111,5 +111,5 @@ export function setupGenerationStudio({api,safe,msg,item,when,reload,getState}){
   if(historyContent.childElementCount){historySummary.textContent='下書き保存済みの生成履歴（'+historyContent.childElementCount+'件の記録）';target.append(historyDetails);}
   if(!pollTimer&&((state.generationJobs||[]).some(j=>j.kind!=='test'&&['queued','generating'].includes(j.status))||(state.generationBatches||[]).some(b=>b.jobs?.some(j=>['queued','generating'].includes(j.status))))){pollTimer=setTimeout(async()=>{pollTimer=null;try{if(getState())await reload();}catch{}},3000);}
  }
- return {render,previewRequest:()=>({target_date:$('#generation-date').value,slots:slots()}),reset(){dirty=false;version=null;rows=[];busy=false;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;$('#generation-slots').replaceChildren();weeklyStatus.replaceChildren();historyDetails.open=false;historyContent.replaceChildren();$('#generation-status').replaceChildren();}};
+ return {render,previewRequest:()=>({target_date:$('#generation-date').value,slots:slots()}),reset(){pendingRequests.clear();dirty=false;version=null;rows=[];busy=false;if(pollTimer)clearTimeout(pollTimer);pollTimer=null;$('#generation-slots').replaceChildren();weeklyStatus.replaceChildren();historyDetails.open=false;historyContent.replaceChildren();$('#generation-status').replaceChildren();}};
 }
