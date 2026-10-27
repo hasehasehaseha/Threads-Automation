@@ -84,7 +84,7 @@ export default {async scheduled(event,env,ctx){
  const [promptTemplates,promptPlans]=await Promise.all([db(env,'prompt_templates?order=created_at.asc,id.asc&limit=100'),db(env,'prompt_plan?id=eq.1')]);
  const ai=env.AI_HISTORY_ENABLED==='true'?{config:(await db(env,'ai_config?id=eq.1'))[0],usage:await db(env,'rpc/ai_month_usage','POST',{})}:null;
  const generationBatches=env.AI_HISTORY_ENABLED==='true'?await db(env,'rpc/weekly_generation_status','POST',{}):[];
- return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationBatches,notifications,generationEnabled:!!env.MAKE_AI_TOKEN,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
+ return json({member:m,posts,settings:settings[0]||null,metrics,ai,generationBatches,notifications,generationEnabled:!!env.MAKE_AI_TOKEN||(env.AI_HISTORY_ENABLED==='true'&&!!env.OPENAI_API_KEY),generationImmediateEnabled:env.AI_HISTORY_ENABLED==='true'&&!!env.OPENAI_API_KEY,testEnabled:!!env.OPENAI_API_KEY,generationJobs,promptTemplates,promptPlan:promptPlans[0]||null,immediateEnabled:immediateReady(env),automationEnabled:env.AUTOMATION_ENABLED==='true',metricsEnabled:!!env.THREADS_ACCESS_TOKEN,threadsToken:await tokenStatus(env,db)});
  }
  if(req.method!=='POST')return json({error:'見つかりません'},404);
  const raw=await req.text();if(raw.length>30000)return json({error:'入力内容が大きすぎます'},413);const data=JSON.parse(raw);
@@ -117,6 +117,13 @@ export default {async scheduled(event,env,ctx){
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(data.request_id))return json({error:'依頼IDが不正です'},400);
   const target=validateGenerationDate(data.start_date),slots=validateGenerationSlots(data.slots,target);
   return json(await db(env,'rpc/request_weekly_generation','POST',{p_actor:m.user_id,p_id:data.request_id,p_start:target,p_slots:slots.map(s=>s.prompt_id),p_times:slots.map(s=>s.time)}));
+ }
+ if(path==='/api/generate-start'){
+  if(env.AI_HISTORY_ENABLED!=='true'||!env.OPENAI_API_KEY)return json({error:'即時生成は接続準備中です'},503);
+  const {runProduction}=await import('./ai-generation.js');
+  // Await while connected. The shared DB claim serializes Make, cron and clicks.
+  const task=runProduction(env,db);ctx?.waitUntil(task.catch(()=>{}));
+  return json(await task);
  }
  if(path==='/api/ai-config'){
   if(m.role!=='admin')return json({error:'AIモデルの変更は管理者のみ可能です'},403);
@@ -183,7 +190,7 @@ export default {async scheduled(event,env,ctx){
  return json(await publishClaim(connectedEnv,post,db));
  }
  if(path==='/api/generate'){
- if(!env.MAKE_AI_TOKEN)return json({error:'AI生成は接続準備中です'},503);
+ if(!env.MAKE_AI_TOKEN&&!(env.AI_HISTORY_ENABLED==='true'&&env.OPENAI_API_KEY))return json({error:'AI生成は接続準備中です'},503);
  if(data.slots!==undefined){
  const target=validateGenerationDate(data.target_date??new Date(Date.now()+9*3600000+86400000).toISOString().slice(0,10));
  const slots=validateGenerationSlots(data.slots,target);

@@ -19,7 +19,7 @@ test('weekly API queues one atomic request for 1, 3 or 7 daily slots, never call
 });
 test('weekly minute trigger processes at most one day and leaves serialization to the shared claim',async()=>{
  let pending=false,processed=0,queries=0;
- const db=async(e,p,m)=>{queries++;assert.equal(p,'rpc/weekly_generation_pending');assert.equal(m,'POST');return pending;};
+ const db=async(e,p)=>{queries++;assert.equal(p,'generation_jobs?kind=eq.production&status=eq.queued&select=id&limit=1');return pending?[{id}]:[];};
  const runner=async()=>{processed++;return {processed:true};};
  assert.deepEqual(await runWeeklyGeneration({},()=>{throw new Error('must not query');},runner),{processed:false});
  await runWeeklyGeneration(env,db,runner);assert.equal(processed,0);
@@ -30,7 +30,7 @@ test('weekly minute trigger processes at most one day and leaves serialization t
 test('generation failure cannot prevent the separately registered publishing cron task',async t=>{
  const tasks=[];
  t.mock.method(globalThis,'fetch',async(url)=>{
-  if(url.includes('/weekly_generation_pending'))throw new Error('generation database unavailable');
+  if(url.includes('/generation_jobs?kind=eq.production'))throw new Error('generation database unavailable');
   return Response.json([]);
  });
  await worker.scheduled({cron:'* * * * *'},{...env,AUTOMATION_ENABLED:'false'}, {waitUntil:p=>tasks.push(p)});
