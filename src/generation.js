@@ -1,4 +1,12 @@
 export const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export function scheduledDateContext(snapshot){
+ if(snapshot?.mode==='test'||!/^\d{4}-\d{2}-\d{2}$/.test(snapshot?.target_date||''))return '';
+ const day=new Date(snapshot.target_date+'T00:00:00+09:00');
+ if(!Number.isFinite(day.valueOf())||new Date(day.valueOf()+9*3600000).toISOString().slice(0,10)!==snapshot.target_date)return '';
+ const weekday=new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',weekday:'long'}).format(day);
+ const slots=(snapshot.times||[]).map((time,i)=>/^([01]\d|2[0-3]):[0-5]\d$/.test(time)?{post_number:i+1,scheduled_at:snapshot.target_date+'T'+time+':00+09:00'}:null).filter(Boolean);
+ return '# システム提供の投稿予定日時（生成日時ではありません）\n投稿予定日（日本時間）：'+snapshot.target_date+'\n'+JSON.stringify({time_zone:'Asia/Tokyo',utc_offset:'+09:00',posting_date:snapshot.target_date,weekday,month:Number(snapshot.target_date.slice(5,7)),posts:slots},null,2);
+}
 export function generationPrompt(settings,snapshot=null) {
  const test=snapshot?.mode==='test',count=test?(snapshot?.count===1?1:3):(snapshot?.count||3);
  const templates=Array.isArray(snapshot?.templates)?snapshot.templates:[];
@@ -6,7 +14,7 @@ export function generationPrompt(settings,snapshot=null) {
  return `# 役割と今回の依頼
 ネイス体操教室 広島段原ショッピングセンター校のThreads投稿下書きを${count}件作成してください。
 ${test?'用途：公開しないテスト。個別プロンプトと今回の補足を反映した投稿文を作成し、指定件数を超える比較案は追加しないでください。':'用途：通常投稿用。下の番号とposts配列の順番を一致させ、各番号につき本文を一つ作成します。'}
-${snapshot?.target_date?'投稿予定日（日本時間）：'+snapshot.target_date+'。この投稿日に合う文章にしてください。日付の明記は必須ではありません。':''}
+${scheduledDateContext(snapshot)}
 
 # 共通の投稿方針
 以下はスタッフが保存した設定です。テーマ・口調・読者・目的に使用し、事実の根拠は確認済みの教室情報だけとします。
@@ -54,7 +62,7 @@ export async function generationAutomation(req,env,path,db,ctx){
     return Response.json(await task);
    }
    const jobs=await db(env,'rpc/claim_generation_job','POST',{}),job=jobs[0];
-   return Response.json({job:job?{id:job.id,claim_id:job.claim_id,prompt:generationPrompt(job.settings_snapshot,job.prompt_snapshot)}:null});
+   return Response.json({job:job?{id:job.id,claim_id:job.claim_id,prompt:generationPrompt(job.settings_snapshot,{...job.prompt_snapshot,target_date:job.target_date||job.prompt_snapshot?.target_date})}:null});
   }
   if(path==='/api/generation/result'){
    const raw=await req.text();if(raw.length>40000)throw new Error();const data=JSON.parse(raw);

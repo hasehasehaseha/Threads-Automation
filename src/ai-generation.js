@@ -36,7 +36,7 @@ export function buildHistoryInput(job,history,usage={}){
  const cap=test?30000:reduced?65000:150000;
  // UTF-8 byte count is a conservative input-token bound, not a token measurement.
  let selected=[...(test?selectTestHistory(history,job.prompt_snapshot):history)].sort((a,b)=>Math.abs(age(date,a.day))-Math.abs(age(date,b.day)));
- const base=generationPrompt(job.settings_snapshot,{...job.prompt_snapshot,memory_enabled:true}),prefix=historyPrompt([],date,reduced,test),lines=[];
+ const base=generationPrompt(job.settings_snapshot,{...job.prompt_snapshot,target_date:job.target_date||job.prompt_snapshot?.target_date,memory_enabled:true}),prefix=historyPrompt([],date,reduced,test),lines=[];
  let bound=bytes(base+prefix)+2048;
  if(bound>cap)throw new Error('AIへの指示が長すぎます。個別プロンプトを短くしてください。');
  for(const row of selected){const line=historyPrompt([row],date,reduced,test).slice(prefix.length),size=bytes(line)+(lines.length?1:0);if(bound+size>cap)break;lines.push(line);bound+=size;}
