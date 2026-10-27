@@ -45,3 +45,6 @@ AI_HISTORY_ENABLED=trueでは、既存POST /api/generation/claimが1組の通常
 
 ## 2026-10-27：通常生成の即時開始
 現在の通常生成は、ボタンから依頼を保存後、同じ画面がPOST /api/generate-startを呼び、CloudflareからOpenAIへ直接生成を開始します。15分のMake起動待ちはありません。GPTの応答・履歴比較・保存には数秒〜数分かかります。生成中は3秒ごとに状態を確認します。他の生成があればDBの共通ロックにより日付順に処理します。単日・週間の残りの依頼は既存の毎分Cronでも確認します。Makeの15分シナリオは予備の起動経路として維持しています。履歴参照・予算・承認・公開条件は従来通りです。古い説明の「通常生成は最大15分待つ」「通常生成の状態確認は15秒ごと」は、この項目に置き換わります。新しいDB設定・秘密キーは不要です。
+
+## 2026-10-27：Makeの旧OpenAIモジュールもSol6.1へ統一（完了）
+ユーザー依頼によりMake10028014のOpenAI ResponsesモジュールModelをgpt-6-solからgpt-6.1-solへ変更。モジュールSave→シナリオSave成功表示→ページ再読み込み→Editで再確認し、gpt-6.1-sol (system)の保存を確認。Active15分・接続・プロンプト・フィルター等は変更せず、Run onceは実行していません。現行AI_HISTORY_ENABLED=trueの投稿生成は引き続きCloudflareのai_config(gpt-6.1-sol)を使用し、Makeの旧OpenAIモジュールはjob:nullフィルターにより未実行です。Proof ../Threads-Automation-make-sol61-saved.png。Make4deliverable。
