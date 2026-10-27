@@ -1,5 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {buildHistoryInput,historyPrompt,duplicateMatches,textSimilarity,usageCost,generateWithHistory,runProduction} from '../src/ai-generation.js';
+import {buildHistoryInput,historyPrompt,duplicateMatches,textSimilarity,usageCost,generateWithHistory,runProduction,memoryMemo} from '../src/ai-generation.js';
+test('history memos never split emoji surrogates when saved to PostgreSQL JSONB',()=>{
+ const text='あ'.repeat(24)+'😊'+'い'.repeat(84)+'🌸'+'う'.repeat(28)+'🎉';
+ for(const value of Object.values(memoryMemo(text))){assert.ok(value.isWellFormed());assert.ok(JSON.stringify(value).isWellFormed());}
+ assert.equal([...memoryMemo(text).opening].length,25);
+ assert.ok(memoryMemo(text).opening.endsWith('😊'));
+});
 import {generationAutomation} from '../src/generation.js';
 const job={id:'11111111-1111-4111-8111-111111111111',claim_id:'claim',kind:'production',target_date:'2026-10-25',settings_snapshot:{facts:'確認済みの校舎名'},prompt_snapshot:{count:2,templates:[{name:'共感',instructions:'気持ちに寄り添う'},{name:'学び',instructions:'選ぶ視点'}],times:['08:00','20:00']}};
 const env={OPENAI_API_KEY:'private-fixture',AI_HISTORY_ENABLED:'true',MAKE_AI_TOKEN:'a'.repeat(40)};
